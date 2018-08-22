@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<customUI xmlns='http://schemas.microsoft.com/office/2006/01/customui' onLoad='onLoad'>
+  <ribbon>
+    <tabs>
+      <tab id='tab1' label='Sense Excel2'>
+        <group id='group1' label='My Group'>
+          <button id='Connect' label='My Button' onAction='{Binding ConnectAction}' getEnabled='{Binding ConnectEnabled}' getVisible='{Binding ConnectVisible}'/>
+          <button id='Test' label='My Button2' onAction='{Binding TestAction}'/>
+          <toggleButton id='toggle' label='toggle' getPressed='{Binding ConnectPressed}' onAction='{Binding ToggleAction}' />
+          <toggleButton id='toggleEn' label='toggle Enabled of My Button' getPressed='{Binding ConnectEnabled}' onAction='{Binding ToggleEnAction}' />
+          <toggleButton id='toggleVis' label='toggle IsVisible of My Button' getPressed='{Binding ConnectVisible}' onAction='{Binding ToggleVisAction}' />          
+        </group >
+        <group id="GroupAbout" label="About" >
+          <splitButton id="About_SplitButton" size="large" getKeytip="getKeyTip">
+            <button id="About" getLabel="getLabel" getKeytip="getKeyTip" getScreentip="getScreentip" getSupertip="getSupertip" getImage="getImage" onAction="onAction" />
+            <menu id="menuAbout">
+              <button id="Support" label="new Language"  onAction="{Binding OnNewLanguageCommand}" />
+              <gallery id="Languages" itemssource="{Binding Languages}" label="Languages" columns="1" onAction="{Binding OnLanguageCommand}"   getItemID="{Binding ID}" getItemLabel="{Binding Name}" getItemCount="GetItemCount" getItemImage="{Binding Image}" >
+              </gallery>
+              <!--<button id="licbuttion" label="About" keytip="VV"/>-->
+            </menu>
+          </splitButton>
+          <!--TODO add Licences-->
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
