@@ -15,8 +15,12 @@
         GalleryItemsSource,
         ItemId,
         ItemLabel,
-        ItemImage
+        ItemImage,
+        LabelBinding,
+        LabelFromResource
     }
+
+
 
     public class BindingInfo
     {
@@ -24,6 +28,7 @@
         public RibbonBindingType RibbonBindingType { get; set; }
         public string ID { get; set; }
         public string ParentID { get; set; }
+        public string ResourceKey { get; set; }
         public List<BindingInfo> SubInfos { get; set; } = new List<BindingInfo>();
     }
 }

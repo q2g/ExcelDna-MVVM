@@ -27,8 +27,6 @@
 
     <None Remove="default.jsconfig" />
 
-    <EmbeddedResource Include="Ribbon\RibbonDefinition.xml" />
-
     <PackageReference Include="ExcelDna.AddIn" Version="0.35.4-beta4" />
 
     <PackageReference Include="NLog" Version="4.5.8" />

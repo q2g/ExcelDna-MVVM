@@ -2,11 +2,11 @@
 {
     #region Usings
     using ExcelDna.Integration;
+    using ExcelDna_MVVM.Utils;
     using NLog;
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
-    using System.Linq;
     using System.Reflection;
     #endregion
 
@@ -87,33 +87,13 @@
             }
         }
 
-        private List<Type> GetImplementingVMTypes<T>() where T : IVM
-        {
-            List<Type> retval = new List<Type>();
-            try
-            {
-                var assemmblys = AppDomain.CurrentDomain.GetAssemblies(); //TODO: This works only in Packed Mode
-                foreach (var assembly in assemmblys)
-                {
-                    var vmTypes = assembly.GetTypes().Where(typ => typ.GetInterfaces().Any(inter => inter == typeof(T))).ToList();//TODO:comparing Types is working only when LoadFromBytes is set to False 
-                    retval.AddRange(vmTypes);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex);
-            }
-            return retval;
-        }
-
-
-
         private List<T> GetVMImplementations<T>(int hwnd) where T : IVM
         {
             List<T> vminstances = new List<T>();
             try
             {
-                var types = GetImplementingVMTypes<IAppVM>();
+
+                var types = TypeUtils.GetTypesImplementingInterface<IAppVM>();
                 foreach (var type in types)
                 {
                     try

@@ -31,6 +31,7 @@
         #region Variables & Properties
         private IRibbonUI ribbonUI;
         private List<BindingInfo> bindingInfos;
+        IExtendedRibbonData extRibbonData;
         private List<BoundControl> boundVMControls = new List<BoundControl>();
 
         internal static int? AppHwnd
@@ -53,23 +54,41 @@
         #region Overrides
         public override string GetCustomUI(string RibbonID)
         {
-
-            string result = MVVMStatic.RibbonXml; //TODO: Find a Way to provide the xml
-            var ribbondefinition = RibbonDefinitionParser.ParseDefinition(result);
-            bindingInfos = ribbondefinition.Item2;
-
-            MVVMStatic.Adapter.VMCreated += Adapter_VMCreated;
-
-            var createdVms = MVVMStatic.Adapter.AllVms;
-            foreach (var vms in createdVms)
+            try
             {
-                foreach (var vm in vms.Value)
+                extRibbonData = FindRibbonDataImplementation();
+                if (extRibbonData != null)
                 {
-                    Adapter_VMCreated(MVVMStatic.Adapter, new VMEventArgs() { VM = vm, HWND = vms.Key });
-                }
+                    extRibbonData.InvalidateRibbonCommand = new RelayCommand((o) =>
+                    {
+                        string param = null;
+                        if (o is string strValue)
+                            param = strValue;
+                        InvalidateRibbon(param);
 
+                    });
+                    var ribbondefinition = RibbonDefinitionParser.ParseDefinition(extRibbonData.GetRibbonXML(), extRibbonData);
+                    bindingInfos = ribbondefinition.Item2;
+
+                    MVVMStatic.Adapter.VMCreated += Adapter_VMCreated;
+
+                    var createdVms = MVVMStatic.Adapter.AllVms;
+                    foreach (var vms in createdVms)
+                    {
+                        foreach (var vm in vms.Value)
+                        {
+                            Adapter_VMCreated(MVVMStatic.Adapter, new VMEventArgs() { VM = vm, HWND = vms.Key });
+                        }
+
+                    }
+                    return ribbondefinition.Item1;
+                }
             }
-            return ribbondefinition.Item1;
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return "";
         }
         #endregion
 
@@ -119,7 +138,7 @@
         {
             try
             {
-                return GetBoolBinding(control, RibbonBindingType.TogglePressed);
+                return GetBindingValue<bool>(control, RibbonBindingType.TogglePressed);
             }
             catch (Exception ex)
             {
@@ -128,11 +147,11 @@
             return false;
         }
 
-        public bool getEnabled(IRibbonControl control)
+        public bool GetEnabled(IRibbonControl control)
         {
             try
             {
-                return GetBoolBinding(control, RibbonBindingType.Enabled);
+                return GetBindingValue<bool>(control, RibbonBindingType.Enabled);
             }
             catch (Exception ex)
             {
@@ -141,11 +160,11 @@
             return false;
         }
 
-        public bool getVisible(IRibbonControl control)
+        public bool GetVisible(IRibbonControl control)
         {
             try
             {
-                return GetBoolBinding(control, RibbonBindingType.Visible);
+                return GetBindingValue<bool>(control, RibbonBindingType.Visible);
             }
             catch (Exception ex)
             {
@@ -154,7 +173,32 @@
             return false;
         }
 
-        public void onLoad(IRibbonUI ribbon)
+        public string GetLabel(IRibbonControl control)
+        {
+            try
+            {
+                var bindinginfo = GetResourceLabelBinding(control.Id);
+                if (bindinginfo != null)
+                {
+                    if (extRibbonData != null)
+                    {
+                        return extRibbonData.GetLocalizedString(bindinginfo.ResourceKey);
+                    }
+                    return bindinginfo.ResourceKey;
+                }
+                else
+                {
+                    return GetBindingValue<string>(control, RibbonBindingType.LabelBinding);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return "";
+        }
+
+        public void OnLoad(IRibbonUI ribbon)
         {
             try
             {
@@ -267,6 +311,13 @@
         #endregion
 
         #region private Functions
+        private BindingInfo GetResourceLabelBinding(string id)
+        {
+            return bindingInfos.FirstOrDefault(bind => bind.RibbonBindingType == RibbonBindingType.LabelFromResource
+                                                             && bind.ID == id);
+
+        }
+
         private List<BoundControl> GetBoundItems(IRibbonControl control, int index, RibbonBindingType bindingType)
         {
             List<BoundControl> items = new List<BoundControl>();
@@ -299,22 +350,22 @@
             return items;
         }
 
-        private bool GetBoolBinding(IRibbonControl control, RibbonBindingType bindingType)
+        private T GetBindingValue<T>(IRibbonControl control, RibbonBindingType bindingType)
         {
             try
             {
                 var ctrls = FindBoundControls(control.Id, control.GetHwnd(), bindingType);
                 foreach (var ctrl in ctrls)
                 {
-                    if (ctrl.Binding.Value is bool boolvalue)
-                        return boolvalue;
+                    if (ctrl.Binding.Value is T value)
+                        return value;
                 }
             }
             catch (Exception ex)
             {
                 logger.Error(ex);
             }
-            return false;
+            return default(T);
         }
 
         private T GetItemBinding<T>(IRibbonControl control, int index, RibbonBindingType bindingType)
@@ -516,6 +567,25 @@
             {
                 logger.Error(ex);
             }
+        }
+
+        private IExtendedRibbonData FindRibbonDataImplementation()
+        {
+            IExtendedRibbonData retval = null;
+            try
+            {
+                var types = TypeUtils.GetTypesImplementingInterface<IExtendedRibbonData>();
+                if (types.Count > 0)
+                {
+                    var typeToCreate = types.First();
+                    retval = (IExtendedRibbonData)Activator.CreateInstance(typeToCreate);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return retval;
         }
         #endregion
     }
