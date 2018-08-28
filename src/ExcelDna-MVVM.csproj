@@ -29,6 +29,8 @@
 
     <PackageReference Include="ExcelDna.AddIn" Version="0.35.4-beta4" />
 
+    <PackageReference Include="NetOffice.Excel" Version="1.7.4.4" />
+
     <PackageReference Include="NLog" Version="4.5.8" />
 
     <PackageReference Include="WpfLocalizeExtension" Version="3.1.2" />

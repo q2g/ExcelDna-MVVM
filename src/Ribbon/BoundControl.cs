@@ -28,6 +28,14 @@
         public BindingObject Binding { get; set; }
         public BindingInfo BindingInfo { get; set; }
         public int Hwnd { get; set; }
+        public object BelongsToVM { get; set; }
+        #endregion
+
+        #region overrides
+        public override string ToString()
+        {
+            return $"Typeof Bindingsource [{Binding.SourceObject?.GetType()?.FullName ?? "null"}], BindingInfo [{BindingInfo}], Hwnd {Hwnd}, BelongsTo [{BelongsToVM?.GetType()?.FullName ?? "null"}]";
+        }
         #endregion
     }
 }

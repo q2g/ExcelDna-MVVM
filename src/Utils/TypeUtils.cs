@@ -20,7 +20,7 @@ namespace ExcelDna_MVVM.Utils
                 var assemmblys = AppDomain.CurrentDomain.GetAssemblies(); //TODO: This works only in Packed Mode
                 foreach (var assembly in assemmblys)
                 {
-                    var vmTypes = assembly.GetTypes().Where(typ => typ.GetInterfaces().Any(inter => inter == typeof(T))).ToList();//TODO:comparing Types is working only when LoadFromBytes is set to False 
+                    var vmTypes = assembly.GetTypes().Where(typ => typ.GetInterfaces().Any(inter => inter.FullName == typeof(T).FullName)).ToList();//TODO:comparing Types is working only when LoadFromBytes is set to False 
                     retval.AddRange(vmTypes);
                 }
             }

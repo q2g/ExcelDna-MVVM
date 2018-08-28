@@ -71,6 +71,7 @@
                     bindingInfos = ribbondefinition.Item2;
 
                     MVVMStatic.Adapter.VMCreated += Adapter_VMCreated;
+                    MVVMStatic.Adapter.VMDeleted += Adapter_VMDeleted;
 
                     var createdVms = MVVMStatic.Adapter.AllVms;
                     foreach (var vms in createdVms)
@@ -100,7 +101,7 @@
                 var ctrls = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.Command);
                 foreach (var ctrl in ctrls)
                 {
-                    if (ctrl.Binding.Value is ICommand command)
+                    if (ctrl.Binding.CachedData is ICommand command)
                     {
                         command.Execute(null);
                     }
@@ -121,7 +122,7 @@
                 var toggles = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.TogglePressed);
                 foreach (var toggle in toggles)
                 {
-                    if (toggle.Binding.Value is bool)//TODO: Remove this Workaround for setting a Value to a Binding which sourceObject don't have this Property.   
+                    if (toggle.Binding.CachedData is bool)//TODO: Remove this Workaround for setting a Value to a Binding which sourceObject don't have this Property.   
                     {
                         toggle.Binding.Value = pressed;
                     }
@@ -223,7 +224,7 @@
                 var boundCollections = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.GalleryItemsSource);
                 foreach (var boundCollectionControl in boundCollections)
                 {
-                    if (boundCollectionControl.Binding.Value is System.Collections.IList list)
+                    if (boundCollectionControl.Binding.CachedData is System.Collections.IList list)
                     {
                         if (index < list.Count)
                         {
@@ -232,7 +233,7 @@
                             var boundCommand = boundCommands.FirstOrDefault();
                             if (boundCommand != null)
                             {
-                                if (boundCommand.Binding.Value is ICommand command)
+                                if (boundCommand.Binding.CachedData is ICommand command)
                                 {
                                     command?.Execute(commandParameter);
                                 }
@@ -256,7 +257,7 @@
 
                 foreach (var boundItemsSource in boundItemsSources)
                 {
-                    if (boundItemsSource.Binding.Value is System.Collections.IList items)
+                    if (boundItemsSource.Binding.CachedData is System.Collections.IList items)
                     {
                         return items.Count;
                     }
@@ -318,6 +319,42 @@
 
         }
 
+        private T GetBindingValue<T>(IRibbonControl control, RibbonBindingType bindingType)
+        {
+            try
+            {
+                var ctrls = FindBoundControls(control.Id, control.GetHwnd(), bindingType);
+                foreach (var ctrl in ctrls)
+                {
+                    if (ctrl.Binding.CachedData is T value)
+                        return value;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return default(T);
+        }
+
+        private T GetItemBinding<T>(IRibbonControl control, int index, RibbonBindingType bindingType)
+        {
+            try
+            {
+                var ctrls = GetBoundItems(control, index, bindingType);
+                foreach (var ctrl in ctrls)
+                {
+                    if (ctrl.Binding.CachedData is T value)
+                        return value;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return default(T);
+        }
+
         private List<BoundControl> GetBoundItems(IRibbonControl control, int index, RibbonBindingType bindingType)
         {
             List<BoundControl> items = new List<BoundControl>();
@@ -327,7 +364,7 @@
                 var boundLists = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.GalleryItemsSource);
                 foreach (var boundList in boundLists)
                 {
-                    if (boundList.Binding.Value is System.Collections.IList list)
+                    if (boundList.Binding.CachedData is System.Collections.IList list)
                     {
                         itemToFind = list[index];
                     }
@@ -348,42 +385,6 @@
                 logger.Error(ex);
             }
             return items;
-        }
-
-        private T GetBindingValue<T>(IRibbonControl control, RibbonBindingType bindingType)
-        {
-            try
-            {
-                var ctrls = FindBoundControls(control.Id, control.GetHwnd(), bindingType);
-                foreach (var ctrl in ctrls)
-                {
-                    if (ctrl.Binding.Value is T value)
-                        return value;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex);
-            }
-            return default(T);
-        }
-
-        private T GetItemBinding<T>(IRibbonControl control, int index, RibbonBindingType bindingType)
-        {
-            try
-            {
-                var ctrls = GetBoundItems(control, index, bindingType);
-                foreach (var ctrl in ctrls)
-                {
-                    if (ctrl.Binding.Value is T value)
-                        return value;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex);
-            }
-            return default(T);
         }
 
         private List<BoundControl> FindBoundControls(string id, int? hwnd, RibbonBindingType type, object sourceObject = null)
@@ -420,55 +421,98 @@
                 {
                     foreach (var bindingInfo in bindingInfos)
                     {
-                        BoundControl boundObject = new BoundControl();
-                        switch (bindingInfo.RibbonBindingType)
+                        CreateBoundObject(vmEventArgs.VM, bindingInfo, vmEventArgs.HWND, vmEventArgs.VM);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+        }
+
+        private void CreateBoundObject(object bindingSource, BindingInfo bindingInfo, int hwnd, object belongsToVm = null)
+        {
+            try
+            {
+                object collection = null;
+                BoundControl boundObject = null;
+                switch (bindingInfo.RibbonBindingType)
+                {
+                    case RibbonBindingType.TogglePressed:
+                    case RibbonBindingType.Visible:
+                    case RibbonBindingType.Enabled:
+                    case RibbonBindingType.LabelBinding:
+                    case RibbonBindingType.ItemId:
+                    case RibbonBindingType.ItemLabel:
+                    case RibbonBindingType.ItemImage:
+                    case RibbonBindingType.Invalidation:
+                        boundObject = new BoundControl();
+                        boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, (eArgs) =>
                         {
-                            case RibbonBindingType.TogglePressed:
-                            case RibbonBindingType.Visible:
-                            case RibbonBindingType.Enabled:
-                            case RibbonBindingType.Invalidation:
-                                boundObject.Binding = new BindingObject(vmEventArgs.VM, bindingInfo.BindingPath, (eArgs) =>
-                                {
-                                    InvalidateRibbon(bindingInfo.ID);
-                                }, true);
-                                break;
+                            InvalidateRibbon(bindingInfo.ID);
+                        }, true);
+                        break;
 
 
-                            case RibbonBindingType.Command:
-                            case RibbonBindingType.ToggleCommand:
-                                boundObject.Binding = new BindingObject(vmEventArgs.VM, bindingInfo.BindingPath, null, false);
-                                break;
+                    case RibbonBindingType.Command:
+                    case RibbonBindingType.ToggleCommand:
+                        boundObject = new BoundControl();
+                        boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, null, false);
+                        break;
 
-                            case RibbonBindingType.GalleryItemsSource:
-                                boundObject.Binding = new BindingObject(vmEventArgs.VM, bindingInfo.BindingPath, (eArgs) =>
-                                {
-                                    var handler = new NotifyCollectionChangedEventHandler((s, eventargs) =>
-                                    {
-                                        var bi = bindingInfo;
-                                        GalleryCollectionChanged(s, eventargs, bi, vmEventArgs.HWND);
-                                    });
-
-                                    if (eArgs.NewValue is INotifyCollectionChanged collectionChangedNew)
-                                    {
-                                        collectionChangedNew.CollectionChanged += handler;
-                                        handler(collectionChangedNew, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-                                    }
-
-                                    if (eArgs.OldValue is INotifyCollectionChanged collectionChangedOld)
-                                    {
-                                        collectionChangedOld.CollectionChanged -= handler;
-                                    }
-                                }, false);
-                                break;
-
-                            default:
-                                break;
-                        }
-                        if (boundObject != null)
+                    case RibbonBindingType.GalleryItemsSource:
+                        boundObject = new BoundControl();
+                        boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, (eArgs) =>
                         {
-                            boundObject.BindingInfo = bindingInfo;
-                            boundObject.Hwnd = vmEventArgs.HWND;
-                            boundVMControls.Add(boundObject);
+                            if (eArgs.NewValue is INotifyCollectionChanged collectionChangedNew)
+                            {
+                                collectionChangedNew.CollectionChanged += GalleryCollectionChanged;
+                                collection = eArgs.NewValue;
+                            }
+
+                            if (eArgs.OldValue is INotifyCollectionChanged collectionChangedOld)
+                            {
+                                collectionChangedOld.CollectionChanged -= GalleryCollectionChanged;
+                            }
+                        }, false);
+                        break;
+
+                    default:
+                        break;
+                }
+                if (boundObject != null)
+                {
+                    boundObject.BindingInfo = bindingInfo;
+                    boundObject.Hwnd = hwnd;
+                    boundObject.BelongsToVM = belongsToVm;
+                    boundVMControls.Add(boundObject);
+                    logger.Trace($"*******Created BoundObject {boundObject} ************Count of  BoundObjects:{boundVMControls.Count}");
+
+                    if (bindingInfo.RibbonBindingType == RibbonBindingType.GalleryItemsSource)
+                        GalleryCollectionChanged(collection, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+                }
+
+
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+        }
+
+        private void Adapter_VMDeleted(object sender, EventArgs e)
+        {
+            try
+            {
+                if (e is VMEventArgs vmEventArgs)
+                {
+                    var list = boundVMControls.ToList();
+                    foreach (var boundControl in list)
+                    {
+                        if (boundControl.BelongsToVM == vmEventArgs.VM)
+                        {
+                            boundVMControls.Remove(boundControl);
                         }
                     }
                 }
@@ -479,72 +523,112 @@
             }
         }
 
-        private void GalleryCollectionChanged(object sender, NotifyCollectionChangedEventArgs e, BindingInfo bindingInfo, int hwnd)
+        private BoundControl FindBoundCollectionControlsBySourceObject<T>(object source) where T : class
         {
-            if (e.Action == NotifyCollectionChangedAction.Add)
+            try
             {
-                foreach (var subbindingInfo in bindingInfo.SubInfos)
+                foreach (var ctrl in boundVMControls)
                 {
-                    foreach (var item in e.NewItems)
+                    if (ctrl.BindingInfo.RibbonBindingType == RibbonBindingType.GalleryItemsSource)
                     {
-                        BoundControl boundItem = new BoundControl
-                        {
-                            Binding = new BindingObject(item, subbindingInfo.BindingPath, (eArgs) =>
-                            {
-                                InvalidateRibbon(bindingInfo.ID);
-                            }, true),
-                            BindingInfo = subbindingInfo,
-                            Hwnd = hwnd
-                        };
-                        boundVMControls.Add(boundItem);
+                        var obj = ctrl.Binding.CachedData as T;
+                        if (obj is T && obj == source)
+                            return ctrl;
                     }
                 }
             }
-            if (e.Action == NotifyCollectionChangedAction.Remove)
+            catch (Exception ex)
             {
-                List<BoundControl> toDelete = new List<BoundControl>();
-                foreach (var subbindingInfo in bindingInfo.SubInfos)
-                {
-                    foreach (var item in e.OldItems)
+                logger.Error(ex);
+            }
+            return null;
+        }
+
+
+        private void GalleryCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    var boundControl = FindBoundCollectionControlsBySourceObject<System.Collections.IList>(sender);
+                    if (boundControl != null)
                     {
-                        foreach (var control in boundVMControls)
+                        foreach (var subbindingInfo in boundControl.BindingInfo.SubInfos)
                         {
-                            if (control.Binding.SourceObject == item)
+                            foreach (var item in e.NewItems)
                             {
-                                toDelete.Add(control);
+                                CreateBoundObject(item, subbindingInfo, boundControl.Hwnd, boundControl.Binding.SourceObject);
                             }
                         }
+                        InvalidateRibbon(boundControl.BindingInfo.ID);
                     }
-                }
-                foreach (var item in toDelete)
-                {
-                    boundVMControls.Remove(item);
-                    item.Dispose();
-                }
+                    break;
+                case NotifyCollectionChangedAction.Remove:
+                    boundControl = FindBoundCollectionControlsBySourceObject<System.Collections.IList>(sender);
+                    if (boundControl != null)
+                    {
+                        List<BoundControl> toDelete = new List<BoundControl>();
+                        foreach (var subbindingInfo in boundControl.BindingInfo.SubInfos)
+                        {
+                            foreach (var item in e.OldItems)
+                            {
+                                foreach (var control in boundVMControls)
+                                {
+                                    if (control.Binding.SourceObject == item)
+                                    {
+                                        toDelete.Add(control);
+                                    }
+                                }
+                            }
+                        }
+                        foreach (var item in toDelete)
+                        {
+                            boundVMControls.Remove(item);
+                            item.Dispose();
+                        }
+                        InvalidateRibbon(boundControl.BindingInfo.ID);
+                    }
+                    break;
+                case NotifyCollectionChangedAction.Replace:
+                    break;
+                case NotifyCollectionChangedAction.Move:
+                    break;
+                case NotifyCollectionChangedAction.Reset:
+                    boundControl = FindBoundCollectionControlsBySourceObject<System.Collections.IList>(sender);
+                    if (boundControl != null)
+                    {
+                        if (sender is System.Collections.IEnumerable items)
+                        {
+                            foreach (var subbindingInfo in boundControl.BindingInfo.SubInfos)
+                            {
+                                foreach (var item in items)
+                                {
+                                    CreateBoundObject(item, subbindingInfo, boundControl.Hwnd, boundControl.Binding.SourceObject);
+                                }
+                            }
+                        }
+                        InvalidateRibbon(boundControl.BindingInfo.ID);
+                    }
+
+                    break;
+                default:
+                    break;
             }
+            if (e.Action == NotifyCollectionChangedAction.Add)
+            {
+
+            }
+
+            if (e.Action == NotifyCollectionChangedAction.Remove)
+            {
+
+            }
+
             if (e.Action == NotifyCollectionChangedAction.Reset)
             {
-                if (sender is System.Collections.IEnumerable items)
-                {
-                    foreach (var subbindingInfo in bindingInfo.SubInfos)
-                    {
-                        foreach (var item in items)
-                        {
-                            BoundControl boundItem = new BoundControl
-                            {
-                                Binding = new BindingObject(item, subbindingInfo.BindingPath, (eArgs) =>
-                                {
-                                    InvalidateRibbon(subbindingInfo.ParentID);
-                                }, true),
-                                BindingInfo = subbindingInfo,
-                                Hwnd = hwnd
-                            };
-                            boundVMControls.Add(boundItem);
-                        }
-                    }
-                }
+
             }
-            InvalidateRibbon(bindingInfo.ID);
+
         }
 
         private void InvalidateRibbon(string id = null)

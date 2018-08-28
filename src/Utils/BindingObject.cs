@@ -35,7 +35,7 @@
             }
         }
 
-        public object Data { get; set; }
+        public object CachedData { get; private set; }
 
 
         public object Value
@@ -51,8 +51,9 @@
         private static void ValueChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var instance = (BindingObject)d;
-            instance.Data = e.NewValue;
+            instance.CachedData = e.NewValue;
             Action<DependencyPropertyChangedEventArgs> onChanged = instance._onChanged;
+
             if (onChanged != null && !instance._suppress)
             {
                 onChanged(e);

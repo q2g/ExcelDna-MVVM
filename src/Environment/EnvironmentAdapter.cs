@@ -35,5 +35,24 @@
             });
             return waitingTask;
         }
+
+        //public static Task<T> QueueAction<T>(Action<T> action, T parameter)
+        //{
+        //    AutoResetEvent resetEvent = new AutoResetEvent(false);
+        //    Task waitingTask = new Task(() => { resetEvent.WaitOne(); });
+        //    ExcelAsyncUtil.QueueAsMacro(() =>
+        //    {
+        //        try
+        //        {
+        //            action(parameter);
+        //            resetEvent.Set();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            logger.Error(ex);
+        //        }
+        //    });
+        //    return waitingTask;
+        //}
     }
 }
