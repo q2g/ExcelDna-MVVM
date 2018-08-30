@@ -58,24 +58,30 @@
             Application = new Application(null, ExcelDnaUtil.Application);
             Application.NewWorkbookEvent += Application_NewWorkbookEvent;
             Application.WorkbookNewSheetEvent += Application_WorkbookNewSheetEvent;
-            Application.SheetBeforeDeleteEvent += Application_SheetBeforeDeleteEvent;
+            Application.WorkbookActivateEvent += Application_WorkbookActivateEvent;
             Application.SheetActivateEvent += Application_SheetActivateEvent;
             CreateVMsForApplication(Application as dynamic);
         }
-
-        private void Application_SheetActivateEvent(COMObject sheet)
-        {
-            logger.Trace($"sheet activated {((sheet as Worksheet).Parent as Workbook).Worksheets}");
-            RemoveUnusedVms();
-        }
-
-
         #endregion
 
         #region public Functions       
         #endregion
 
         #region private Functions
+        private void Application_WorkbookActivateEvent(Workbook wb)
+        {
+            logger.Trace($"workbook activated {wb.Name}");
+            RemoveUnusedVms();
+            wb.DisposeChildInstances();
+        }
+
+        private void Application_SheetActivateEvent(COMObject sheet)
+        {
+            logger.Trace($"sheet activated {(sheet as Worksheet).Name}");
+            RemoveUnusedVms();
+            sheet.DisposeChildInstances();
+        }
+
         private Task RemoveUnusedVms()
         {
             return Task.Run(() =>
@@ -101,39 +107,40 @@
                             logger.Warn($"Possible Error: No worksheet for workbook found, aborting {nameof(this.RemoveUnusedVms)}");
                             return;
                         }
-
-                        vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
-                        foreach (var hwnd in removedHwnds)
-                        {
-                            var vmsToRemove = vms[hwnd].ToList();
-                            foreach (var vm in vmsToRemove)
-                            {
-                                vms[hwnd].Remove(vm);
-                                VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
-                            }
-                            vms.Remove(hwnd);
-                        }
-
-                        sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
-                        var allvms = vms.SelectMany(ele => ele.Value).ToList();
-                        foreach (var sheetid in removedSheetIds)
-                        {
-                            var vmsToRemove = sheetID2VMs[sheetid].ToList();
-                            foreach (var vmToRemove in vmsToRemove)
-                            {
-                                foreach (var item in vms)
-                                {
-                                    if (item.Value.Contains(vmToRemove))
-                                    {
-                                        item.Value.Remove(vmToRemove);
-                                        VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
-                                    }
-                                }
-                            }
-                            sheetID2VMs.Remove(sheetid);
-                        }
                         wb.DisposeChildInstances();
                     }
+
+                    vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
+                    foreach (var hwnd in removedHwnds)
+                    {
+                        var vmsToRemove = vms[hwnd].ToList();
+                        foreach (var vm in vmsToRemove)
+                        {
+                            vms[hwnd].Remove(vm);
+                            VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
+                        }
+                        vms.Remove(hwnd);
+                    }
+
+                    sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
+                    var allvms = vms.SelectMany(ele => ele.Value).ToList();
+                    foreach (var sheetid in removedSheetIds)
+                    {
+                        var vmsToRemove = sheetID2VMs[sheetid].ToList();
+                        foreach (var vmToRemove in vmsToRemove)
+                        {
+                            foreach (var item in vms)
+                            {
+                                if (item.Value.Contains(vmToRemove))
+                                {
+                                    item.Value.Remove(vmToRemove);
+                                    VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
+                                }
+                            }
+                        }
+                        sheetID2VMs.Remove(sheetid);
+                    }
+
                 }
                 catch (Exception ex)
                 {
@@ -235,40 +242,6 @@
             }
             wb.DisposeChildInstances();
             sheet.DisposeChildInstances();
-        }
-
-        private void Application_SheetBeforeDeleteEvent(COMObject sheet)
-        {
-            string sheetIDToDelete = null;
-            EnvironmentAdapter.QueueAction(() =>
-            {
-                try
-                {
-                    var sheetName = (sheet as Worksheet).Name;
-                    ExcelReference sheetRef = (ExcelReference)XlCall.Excel(XlCall.xlSheetId, sheetName);
-
-                    sheetIDToDelete = sheetRef.SheetId.ToString();
-
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex);
-                }
-            })
-                        .ContinueWith((res) =>
-                        {
-
-                            if (sheetIDToDelete != null && sheetID2VMs.ContainsKey(sheetIDToDelete))
-                            {
-                                var vmsToRemove = sheetID2VMs[sheetIDToDelete];
-                                foreach (var vm in vmsToRemove)
-                                {
-                                    VMDeleted?.Invoke(this, new VMEventArgs() { HWND = 0, VM = vm });
-                                }
-                                sheetID2VMs.Remove(sheetIDToDelete);
-                            }
-
-                        });
         }
 
         private Task CreateSheetVMsFromWorkbookAsync(Workbook wb)
