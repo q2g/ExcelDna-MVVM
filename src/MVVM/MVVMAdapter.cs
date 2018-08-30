@@ -205,8 +205,16 @@
 
         private string GetVMsCount()
         {
-            var allVms = vms.SelectMany(ele => ele.Value).ToList();
-            return $"------------------------------------AppVMs:{allVms.Where(vm => vm is IAppVM).Count()}, WorkbookVMs:{allVms.Where(vm => vm is IWorkbookVM).Count()}, WorksheetVMs:{allVms.Where(vm => vm is IWorksheetVM).Count()}";
+            var allAppVms = vms.SelectMany(ele => ele.Value)
+                .Select(ele => ele.GetType()).ToList()
+                .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IAppVM).FullName));
+            var allWorkbookVms = vms.SelectMany(ele => ele.Value)
+                .Select(ele => ele.GetType()).ToList()
+                .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IWorkbookVM).FullName));
+            var allSheetVms = vms.SelectMany(ele => ele.Value)
+                .Select(ele => ele.GetType()).ToList()
+                .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IWorksheetVM).FullName));
+            return $"------------------------------------AppVMs:{allAppVms}, WorkbookVMs:{allWorkbookVms}, WorksheetVMs:{allSheetVms}";
         }
 
         private void Application_NewWorkbookEvent(Workbook wb)
@@ -227,7 +235,17 @@
                     logger.Error(ex);
                 }
 
-            }).ContinueWith((res) => { wb.DisposeChildInstances(); });
+            }).ContinueWith((res) =>
+            {
+                try
+                {
+                    wb.DisposeChildInstances();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex);
+                }
+            });
         }
 
         private void Application_WorkbookNewSheetEvent(Workbook wb, COMObject sheet)
