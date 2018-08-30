@@ -34,7 +34,7 @@
         #region overrides
         public override string ToString()
         {
-            return $"Typeof Bindingsource [{Binding.SourceObject?.GetType()?.FullName ?? "null"}], BindingInfo [{BindingInfo}], Hwnd {Hwnd}, BelongsTo [{BelongsToVM?.GetType()?.FullName ?? "null"}]";
+            return $" Bindingsource [{Binding.SourceObject?.GetType()?.FullName ?? "null"}], BindingInfo [{BindingInfo}], Hwnd {Hwnd}, BelongsTo [{BelongsToVM?.GetType()?.FullName ?? "null"}]";
         }
         #endregion
     }

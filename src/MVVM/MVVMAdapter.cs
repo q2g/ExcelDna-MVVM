@@ -36,7 +36,7 @@
             }
         }
         private NetOffice.ExcelApi.Application Application;
-        private Dictionary<string, List<IVM>> sheetID2VMs;
+        private Dictionary<string, List<IVM>> sheetID2VMs = new Dictionary<string, List<IVM>>();
         #endregion
 
         #region Events
@@ -59,14 +59,89 @@
             Application.NewWorkbookEvent += Application_NewWorkbookEvent;
             Application.WorkbookNewSheetEvent += Application_WorkbookNewSheetEvent;
             Application.SheetBeforeDeleteEvent += Application_SheetBeforeDeleteEvent;
+            Application.SheetActivateEvent += Application_SheetActivateEvent;
             CreateVMsForApplication(Application as dynamic);
         }
+
+        private void Application_SheetActivateEvent(COMObject sheet)
+        {
+            logger.Trace($"sheet activated {((sheet as Worksheet).Parent as Workbook).Worksheets}");
+            RemoveUnusedVms();
+        }
+
+
         #endregion
 
         #region public Functions       
         #endregion
 
         #region private Functions
+        private Task RemoveUnusedVms()
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    var app = Application;
+                    List<int> existingHwnds = new List<int>() { -1 };
+                    List<string> existingSheetIds = new List<string>();
+                    foreach (var wb in app.Workbooks)
+                    {
+                        foreach (var window in wb.Windows)
+                        {
+                            existingHwnds.Add(window.Hwnd);
+                        }
+                        var ids = GetSheetIdsFromWorkbookAsync(wb).Result;
+                        if (ids != null)
+                        {
+                            existingSheetIds.AddRange(ids);
+                        }
+                        else
+                        {
+                            logger.Warn($"Possible Error: No worksheet for workbook found, aborting {nameof(this.RemoveUnusedVms)}");
+                            return;
+                        }
+
+                        vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
+                        foreach (var hwnd in removedHwnds)
+                        {
+                            var vmsToRemove = vms[hwnd].ToList();
+                            foreach (var vm in vmsToRemove)
+                            {
+                                vms[hwnd].Remove(vm);
+                                VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
+                            }
+                            vms.Remove(hwnd);
+                        }
+
+                        sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
+                        var allvms = vms.SelectMany(ele => ele.Value).ToList();
+                        foreach (var sheetid in removedSheetIds)
+                        {
+                            var vmsToRemove = sheetID2VMs[sheetid].ToList();
+                            foreach (var vmToRemove in vmsToRemove)
+                            {
+                                foreach (var item in vms)
+                                {
+                                    if (item.Value.Contains(vmToRemove))
+                                    {
+                                        item.Value.Remove(vmToRemove);
+                                        VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
+                                    }
+                                }
+                            }
+                            sheetID2VMs.Remove(sheetid);
+                        }
+                        wb.DisposeChildInstances();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex);
+                }
+            });
+        }
+
         private void CreateVMsForApplication(dynamic app)
         {
             try
@@ -133,19 +208,19 @@
             {
                 try
                 {
-                    int hwnd = GetHwndFromWorkbook(wb);
-                    if (hwnd != -2)
+                    foreach (var window in wb.Windows)
                     {
-                        CreateVMImplementations<IWorkbookVM>(hwnd);
+                        CreateVMImplementations<IWorkbookVM>(window.Hwnd);
                         CreateSheetVMsFromWorkbookAsync(wb);
                     }
+
                 }
                 catch (Exception ex)
                 {
                     logger.Error(ex);
                 }
-                wb.DisposeChildInstances();
-            });
+
+            }).ContinueWith((res) => { wb.DisposeChildInstances(); });
         }
 
         private void Application_WorkbookNewSheetEvent(Workbook wb, COMObject sheet)
@@ -162,40 +237,107 @@
             sheet.DisposeChildInstances();
         }
 
-        private void Application_SheetBeforeDeleteEvent(COMObject Sh)
+        private void Application_SheetBeforeDeleteEvent(COMObject sheet)
         {
-
-        }
-
-        private Task CreateSheetVMsFromWorkbookAsync(Workbook wb)
-        {
-            var ids = new List<string>();
-            return EnvironmentAdapter.QueueAction(() =>
+            string sheetIDToDelete = null;
+            EnvironmentAdapter.QueueAction(() =>
             {
                 try
                 {
-                    var sheetnames = (object[,])XlCall.Excel(XlCall.xlfGetWorkbook, 1, wb.Name);
+                    var sheetName = (sheet as Worksheet).Name;
+                    ExcelReference sheetRef = (ExcelReference)XlCall.Excel(XlCall.xlSheetId, sheetName);
 
-                    for (int j = 0; j < sheetnames.GetLength(1); j++)
-                    {
-                        var sheetName = sheetnames[0, j];
-                        ExcelReference sheetRef = (ExcelReference)XlCall.Excel(XlCall.xlSheetId, sheetName);
+                    sheetIDToDelete = sheetRef.SheetId.ToString();
 
-                        ids.Add(sheetRef.SheetId.ToString());
-                    }
                 }
                 catch (Exception ex)
                 {
                     logger.Error(ex);
                 }
             })
+                        .ContinueWith((res) =>
+                        {
+
+                            if (sheetIDToDelete != null && sheetID2VMs.ContainsKey(sheetIDToDelete))
+                            {
+                                var vmsToRemove = sheetID2VMs[sheetIDToDelete];
+                                foreach (var vm in vmsToRemove)
+                                {
+                                    VMDeleted?.Invoke(this, new VMEventArgs() { HWND = 0, VM = vm });
+                                }
+                                sheetID2VMs.Remove(sheetIDToDelete);
+                            }
+
+                        });
+        }
+
+        private Task CreateSheetVMsFromWorkbookAsync(Workbook wb)
+        {
+            return GetSheetIdsFromWorkbookAsync(wb)
             .ContinueWith((res) =>
             {
-                foreach (var id in ids)
+                if (!res.IsFaulted)
                 {
-                    if (!sheetID2VMs.ContainsKey(id))
-                        sheetID2VMs.Add(id, CreateVMImplementations<IWorksheetVM>(wb.Windows[0].Hwnd));
+                    try
+                    {
+                        var ids = res.Result;
+                        if (ids != null)
+                        {
+                            foreach (var id in ids)
+                            {
+                                if (!sheetID2VMs.ContainsKey(id))
+                                {//TODO: should there be a worksheet VM for every Window of the WB?
+                                 //Is there a case where different Workbookwindows have different sheets?
+                                    sheetID2VMs.Add(id, CreateVMImplementations<IWorksheetVM>(GetHwndFromWorkbook(wb)));
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex);
+                    }
                 }
+            });
+        }
+
+        private Task<List<string>> GetSheetIdsFromWorkbookAsync(Workbook wb)
+        {
+
+            return Task.Run(() =>
+            {
+                var ids = new List<string>();
+                try
+                {
+
+                    EnvironmentAdapter.QueueAction(() =>
+                    {
+                        try
+                        {
+                            var sheetnames = (object[,])XlCall.Excel(XlCall.xlfGetWorkbook, 1, wb.Name);
+
+                            for (int j = 0; j < sheetnames.GetLength(1); j++)
+                            {
+                                var sheetName = sheetnames[0, j];
+                                ExcelReference sheetRef = (ExcelReference)XlCall.Excel(XlCall.xlSheetId, sheetName);
+
+                                ids.Add(sheetRef.SheetId.ToString());
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error(ex);
+                            ids = null;
+                        }
+
+                    }).Wait();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex);
+                    ids = null;
+                }
+                return ids;
             });
         }
 

@@ -487,7 +487,7 @@
                     boundObject.Hwnd = hwnd;
                     boundObject.BelongsToVM = belongsToVm;
                     boundVMControls.Add(boundObject);
-                    logger.Trace($"*******Created BoundObject {boundObject} ************Count of  BoundObjects:{boundVMControls.Count}");
+                    logger.Trace($"+++++++++++++++++Created BoundObject: {boundObject} +++++++++++++++Count of  BoundObjects:{boundVMControls.Count}");
 
                     if (bindingInfo.RibbonBindingType == RibbonBindingType.GalleryItemsSource)
                         GalleryCollectionChanged(collection, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
@@ -513,6 +513,7 @@
                         if (boundControl.BelongsToVM == vmEventArgs.VM)
                         {
                             boundVMControls.Remove(boundControl);
+                            logger.Trace($"-----------------------Removed BoundControl: {boundControl}--------------Count of BoundObjects:{boundVMControls.Count}");
                         }
                     }
                 }
