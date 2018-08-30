@@ -31,7 +31,7 @@
         #region Variables & Properties
         private IRibbonUI ribbonUI;
         private List<BindingInfo> bindingInfos;
-        IExtendedRibbonData extRibbonData;
+        IAddInInformation extRibbonData;
         private List<BoundControl> boundVMControls = new List<BoundControl>();
 
         internal static int? AppHwnd
@@ -654,16 +654,16 @@
             }
         }
 
-        private IExtendedRibbonData FindRibbonDataImplementation()
+        private IAddInInformation FindRibbonDataImplementation()
         {
-            IExtendedRibbonData retval = null;
+            IAddInInformation retval = null;
             try
             {
-                var types = TypeUtils.GetTypesImplementingInterface<IExtendedRibbonData>();
+                var types = TypeUtils.GetTypesImplementingInterface<IAddInInformation>();
                 if (types.Count > 0)
                 {
                     var typeToCreate = types.First();
-                    retval = (IExtendedRibbonData)Activator.CreateInstance(typeToCreate);
+                    retval = new AddInInformationWrapper(Activator.CreateInstance(typeToCreate));
                 }
             }
             catch (Exception ex)

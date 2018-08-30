@@ -15,7 +15,7 @@
         #endregion
 
         #region static Functions        
-        public static Tuple<string, List<BindingInfo>> ParseDefinition(string ribbonDefinitionText, IExtendedRibbonData extRibbondata)
+        public static Tuple<string, List<BindingInfo>> ParseDefinition(string ribbonDefinitionText, IAddInInformation extRibbondata)
         {
             try
             {
@@ -58,7 +58,7 @@
         #endregion
 
         #region private Functions
-        private static List<BindingInfo> ReplaceBindingAndExtractBindingInfo(XElement ribbonElement, string controlType, string attributeName, string newAttributeValue, RibbonBindingType bindingType, string parentID = null, IExtendedRibbonData extRibbondata = null, string localizationPrefix = "")
+        private static List<BindingInfo> ReplaceBindingAndExtractBindingInfo(XElement ribbonElement, string controlType, string attributeName, string newAttributeValue, RibbonBindingType bindingType, string parentID = null, IAddInInformation extRibbondata = null, string localizationPrefix = "")
         {
             List<BindingInfo> bindingInfos = new List<BindingInfo>();
             var elements = ribbonElement.DescendantsAndSelf().Where(ele => ele.Name.LocalName == controlType || controlType == "").ToList();

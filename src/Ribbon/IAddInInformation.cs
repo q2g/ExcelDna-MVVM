@@ -2,7 +2,7 @@
 
 namespace ExcelDna_MVVM.Ribbon
 {
-    public interface IExtendedRibbonData
+    public interface IAddInInformation
     {
         string GetRibbonXML();
         string GetLocalizedString(string key);

@@ -6,7 +6,7 @@
 
     public class VMEventArgs : EventArgs
     {
-        public IVM VM { get; set; }
+        public object VM { get; set; }
         public int HWND { get; set; }
     }
 }

@@ -23,12 +23,10 @@
 
 
         #region Variables & Properties
-        private object vmsLock = new object();
-        private Dictionary<int, List<IVM>> vms = new Dictionary<int, List<IVM>>();
+        private Dictionary<int, List<object>> vms = new Dictionary<int, List<object>>();
         private Dictionary<Type, PropertyInfo> propertyInfos = new Dictionary<Type, PropertyInfo>();
         private Dictionary<Type, List<Type>> vmImplementationTypes = new Dictionary<Type, List<Type>>();
-
-        public Dictionary<int, List<IVM>> AllVms //TODO:
+        public Dictionary<int, List<object>> AllVms
         {
             get
             {
@@ -36,7 +34,7 @@
             }
         }
         private NetOffice.ExcelApi.Application Application;
-        private Dictionary<string, List<IVM>> sheetID2VMs = new Dictionary<string, List<IVM>>();
+        private Dictionary<string, List<object>> sheetID2VMs = new Dictionary<string, List<object>>();
         #endregion
 
         #region Events
@@ -118,6 +116,7 @@
                         {
                             vms[hwnd].Remove(vm);
                             VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
+                            logger.Trace(() => GetVMsCount());
                         }
                         vms.Remove(hwnd);
                     }
@@ -135,6 +134,7 @@
                                 {
                                     item.Value.Remove(vmToRemove);
                                     VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
+                                    logger.Trace(() => GetVMsCount());
                                 }
                             }
                         }
@@ -154,7 +154,7 @@
             try
             {
                 if (vms == null)
-                    vms = new Dictionary<int, List<IVM>>();
+                    vms = new Dictionary<int, List<object>>();
 
                 CreateVMImplementations<IAppVM>(-1);
 
@@ -169,9 +169,9 @@
             }
         }
 
-        private List<IVM> CreateVMImplementations<T>(int hwnd) where T : IVM
+        private List<object> CreateVMImplementations<T>(int hwnd) where T : IVM
         {
-            List<IVM> createdVms = new List<IVM>();
+            List<object> createdVms = new List<object>();
             try
             {
                 var types = vmImplementationTypes[typeof(T)];
@@ -180,11 +180,11 @@
                     try
                     {
                         logger.Info($"Create VM for Type: {type?.FullName}");
-                        var vm = (T)Activator.CreateInstance(type);
+                        var vm = Activator.CreateInstance(type);
                         createdVms.Add(vm);
 
                         if (!vms.ContainsKey(hwnd))
-                            vms.Add(hwnd, new List<IVM>());
+                            vms.Add(hwnd, new List<object>());
                         vms[hwnd].Add(vm);
 
                         logger.Trace(() => GetVMsCount());
