@@ -3,6 +3,7 @@
     #region Usings
     using ExcelDna.Integration;
     using ExcelDna_MVVM.Environment;
+    using ExcelDna_MVVM.MVVM.ExcelData;
     using ExcelDna_MVVM.Utils;
     using NetOffice;
     using NetOffice.ExcelApi;
@@ -65,11 +66,18 @@
         #region public Functions       
         #endregion
 
-        #region private Functions
+        #region Eventhandler
         private void Application_WorkbookActivateEvent(Workbook wb)
         {
-            logger.Trace($"workbook activated {wb.Name}");
-            RemoveUnusedVms();
+            try
+            {
+                logger.Trace($"workbook activated {wb.Name}");
+                RemoveUnusedVms();
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
             wb.DisposeChildInstances();
         }
 
@@ -80,73 +88,142 @@
             sheet.DisposeChildInstances();
         }
 
+        private void Application_NewWorkbookEvent(Workbook wb)
+        {
+            try
+            {
+                ConvertWorkbookAsync(wb).ContinueWith((res) =>
+                {
+                    if (!res.IsFaulted && res.Result != null)
+                    {
+
+                        foreach (var hwnd in res.Result.hwnds)
+                        {
+                            CreateVMImplementations<IWorkbookVM>(hwnd);
+                            CreateSheetVMsFromWorkbookAsync(res.Result);
+                        }
+
+                    }
+                });
+                wb.DisposeChildInstances();
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+
+
+        }
+
+        private void Application_WorkbookNewSheetEvent(Workbook wb, COMObject sheet)
+        {
+            try
+            {
+                ConvertWorkbookAsync(wb).ContinueWith((res) =>
+                {
+                    if (!res.IsFaulted && res != null)
+                        CreateSheetVMsFromWorkbookAsync(res.Result);
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            wb.DisposeChildInstances();
+            sheet.DisposeChildInstances();
+        }
+        #endregion
+
+        #region private Functions
         private Task RemoveUnusedVms()
         {
-            return Task.Run(() =>
+            Task retval = new Task(() => { });
+            try
             {
-                try
+                var app = Application;
+
+                List<Task<WorkbookData>> tasks = new List<Task<WorkbookData>>();
+                foreach (var wb in app.Workbooks)
                 {
-                    var app = Application;
-                    List<int> existingHwnds = new List<int>() { -1 };
-                    List<string> existingSheetIds = new List<string>();
-                    foreach (var wb in app.Workbooks)
-                    {
-                        foreach (var window in wb.Windows)
-                        {
-                            existingHwnds.Add(window.Hwnd);
-                        }
-                        var ids = GetSheetIdsFromWorkbookAsync(wb).Result;
-                        if (ids != null)
-                        {
-                            existingSheetIds.AddRange(ids);
-                        }
-                        else
-                        {
-                            logger.Warn($"Possible Error: No worksheet for workbook found, aborting {nameof(this.RemoveUnusedVms)}");
-                            return;
-                        }
-                        wb.DisposeChildInstances();
-                    }
-
-                    vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
-                    foreach (var hwnd in removedHwnds)
-                    {
-                        var vmsToRemove = vms[hwnd].ToList();
-                        foreach (var vm in vmsToRemove)
-                        {
-                            vms[hwnd].Remove(vm);
-                            VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
-                            logger.Trace(() => GetVMsCount());
-                        }
-                        vms.Remove(hwnd);
-                    }
-
-                    sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
-                    var allvms = vms.SelectMany(ele => ele.Value).ToList();
-                    foreach (var sheetid in removedSheetIds)
-                    {
-                        var vmsToRemove = sheetID2VMs[sheetid].ToList();
-                        foreach (var vmToRemove in vmsToRemove)
-                        {
-                            foreach (var item in vms)
-                            {
-                                if (item.Value.Contains(vmToRemove))
-                                {
-                                    item.Value.Remove(vmToRemove);
-                                    VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
-                                    logger.Trace(() => GetVMsCount());
-                                }
-                            }
-                        }
-                        sheetID2VMs.Remove(sheetid);
-                    }
-
+                    tasks.Add(ConvertWorkbookAsync(wb));
                 }
-                catch (Exception ex)
-                {
-                    logger.Error(ex);
-                }
-            });
+
+                retval = Task.WhenAll(tasks).ContinueWith((res) =>
+                 {
+                     try
+                     {
+                         List<int> existingHwnds = new List<int>() { -1 };
+                         List<string> existingSheetIds = new List<string>();
+
+                         foreach (var task in tasks)
+                         {
+                             if (!task.IsFaulted)
+                             {
+                                 existingHwnds.AddRange(task.Result.hwnds);
+                                 var ids = task.Result.sheetIds;
+                                 if (ids != null)
+                                 {
+                                     existingSheetIds.AddRange(ids);
+                                 }
+                                 else
+                                 {
+                                     logger.Warn($"Possible Error: No worksheet for workbook found, aborting {nameof(this.RemoveUnusedVms)}");
+                                     return;
+                                 }
+                             }
+                             else
+                             {
+                                 logger.Error(task.Exception);
+                                 return;
+                             }
+                         }
+
+                         vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
+                         foreach (var hwnd in removedHwnds)
+                         {
+                             var vmsToRemove = vms[hwnd].ToList();
+                             foreach (var vm in vmsToRemove)
+                             {
+                                 vms[hwnd].Remove(vm);
+                                 VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
+                                 logger.Trace(() => GetVMsCount());
+                             }
+                             vms.Remove(hwnd);
+                         }
+
+
+                         sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
+                         var allvms = vms.SelectMany(ele => ele.Value).ToList();
+                         foreach (var sheetid in removedSheetIds)
+                         {
+                             var vmsToRemove = sheetID2VMs[sheetid].ToList();
+                             foreach (var vmToRemove in vmsToRemove)
+                             {
+                                 foreach (var item in vms)
+                                 {
+                                     if (item.Value.Contains(vmToRemove))
+                                     {
+                                         item.Value.Remove(vmToRemove);
+                                         VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
+                                         logger.Trace(() => GetVMsCount());
+                                     }
+                                 }
+                             }
+                             sheetID2VMs.Remove(sheetid);
+                         }
+
+                     }
+                     catch (Exception ex)
+                     {
+                         logger.Error(ex);
+                     }
+                 });
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return retval;
         }
 
         private void CreateVMsForApplication(dynamic app)
@@ -214,72 +291,44 @@
             var allSheetVms = vms.SelectMany(ele => ele.Value)
                 .Select(ele => ele.GetType()).ToList()
                 .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IWorksheetVM).FullName));
-            return $"------------------------------------AppVMs:{allAppVms}, WorkbookVMs:{allWorkbookVms}, WorksheetVMs:{allSheetVms}";
+            return $"*****************************AppVMs:{allAppVms}, WorkbookVMs:{allWorkbookVms}, WorksheetVMs:{allSheetVms}******************************";
         }
 
-        private void Application_NewWorkbookEvent(Workbook wb)
+        private Task<WorkbookData> ConvertWorkbookAsync(Workbook wb)
         {
-            Task.Run(() =>
+            WorkbookData wbd = new WorkbookData();
+            wbd.Name = wb.Name;
+            wbd.hwnds = wb.Windows.Select(win => win.Hwnd).ToList();
+            return GetSheetIdsFromWorkbookAsync(wbd).ContinueWith((res) =>
             {
-                try
-                {
-                    foreach (var window in wb.Windows)
-                    {
-                        CreateVMImplementations<IWorkbookVM>(window.Hwnd);
-                        CreateSheetVMsFromWorkbookAsync(wb);
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex);
-                }
-
-            }).ContinueWith((res) =>
-            {
-                try
-                {
-                    wb.DisposeChildInstances();
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex);
-                }
+                if (!res.IsFaulted && res.Result != null)
+                    wbd.sheetIds.AddRange(res.Result);
+                return wbd;
             });
+
+
         }
 
-        private void Application_WorkbookNewSheetEvent(Workbook wb, COMObject sheet)
+        private Task CreateSheetVMsFromWorkbookAsync(WorkbookData wbd)
         {
-            try
+            return Task.Run(() =>
             {
-                CreateSheetVMsFromWorkbookAsync(wb);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex);
-            }
-            wb.DisposeChildInstances();
-            sheet.DisposeChildInstances();
-        }
-
-        private Task CreateSheetVMsFromWorkbookAsync(Workbook wb)
-        {
-            return GetSheetIdsFromWorkbookAsync(wb)
-            .ContinueWith((res) =>
-            {
-                if (!res.IsFaulted)
+                if (wbd != null)
                 {
                     try
                     {
-                        var ids = res.Result;
+                        var ids = wbd.sheetIds;
                         if (ids != null)
                         {
-                            foreach (var id in ids)
+                            foreach (var hwnd in wbd.hwnds)
                             {
-                                if (!sheetID2VMs.ContainsKey(id))
-                                {//TODO: should there be a worksheet VM for every Window of the WB?
-                                 //Is there a case where different Workbookwindows have different sheets?
-                                    sheetID2VMs.Add(id, CreateVMImplementations<IWorksheetVM>(GetHwndFromWorkbook(wb)));
+                                foreach (var id in wbd.sheetIds)
+                                {
+                                    if (!sheetID2VMs.ContainsKey(id))
+                                    {//TODO: should there be a worksheet VM for every Window of the WB?
+                                     //Is there a case where different Workbookwindows have different sheets?
+                                        sheetID2VMs.Add(id, CreateVMImplementations<IWorksheetVM>(hwnd));
+                                    }
                                 }
                             }
                         }
@@ -292,7 +341,7 @@
             });
         }
 
-        private Task<List<string>> GetSheetIdsFromWorkbookAsync(Workbook wb)
+        private Task<List<string>> GetSheetIdsFromWorkbookAsync(WorkbookData wb)
         {
 
             return Task.Run(() =>
@@ -300,7 +349,6 @@
                 var ids = new List<string>();
                 try
                 {
-
                     EnvironmentAdapter.QueueAction(() =>
                     {
                         try
@@ -330,19 +378,6 @@
                 }
                 return ids;
             });
-        }
-
-        private int GetHwndFromWorkbook(NetOffice.ExcelApi.Workbook wb)
-        {
-            if (wb.Windows.Count > 0)//TODO: How can there be Multiple Hwnd's for one Workbook?
-            {
-                return wb.Windows[1].Hwnd;
-            }
-            else
-            {
-                logger.Warn($"New Workbook {wb?.Name ?? "unknown"} does not have a window");
-            }
-            return -2;
         }
         #endregion
     }
