@@ -1,7 +1,6 @@
 ﻿namespace ExcelDna_MVVM
 {
     #region Usings
-    using ExcelDna.Integration;
     using ExcelDna.Integration.CustomUI;
     using ExcelDna_MVVM.MVVM;
     using ExcelDna_MVVM.Ribbon;
@@ -14,6 +13,7 @@
     using System.Runtime.InteropServices;
     using System.Threading.Tasks;
     using System.Windows.Input;
+    using System.Windows.Threading;
     #endregion
 
     [ComVisible(true)]
@@ -32,36 +32,22 @@
         #region Variables & Properties
         private IRibbonUI ribbonUI;
         private List<BindingInfo> bindingInfos;
-        IAddInInformation extRibbonData;
-        object boundVMControlsLock = new object();
+        private IAddInInformation addInInformation;
+        private object boundVMControlsLock = new object();
         private List<BoundControl> boundVMControls = new List<BoundControl>();
-
-        internal static int? AppHwnd
-        {
-            get
-            {
-                try
-                {
-                    return (ExcelDnaUtil.Application as dynamic)?.Hwnd;
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex);
-                    return null;
-                }
-            }
-        }
+        private Dispatcher currentdispatcher;
         #endregion
 
         #region Overrides
         public override string GetCustomUI(string RibbonID)
         {
+            currentdispatcher = Dispatcher.CurrentDispatcher;
             try
             {
-                extRibbonData = FindRibbonDataImplementation();
-                if (extRibbonData != null)
+                addInInformation = FindRibbonDataImplementation();
+                if (addInInformation != null)
                 {
-                    extRibbonData.InvalidateRibbonCommand = new RelayCommand((o) =>
+                    addInInformation.InvalidateRibbonCommand = new RelayCommand((o) =>
                     {
                         string param = null;
                         if (o is string strValue)
@@ -69,7 +55,7 @@
                         InvalidateRibbon(param);
 
                     });
-                    var ribbondefinition = RibbonDefinitionParser.ParseDefinition(extRibbonData.GetRibbonXML(), extRibbonData);
+                    var ribbondefinition = RibbonDefinitionParser.ParseDefinition(addInInformation.GetRibbonXML(), addInInformation);
                     bindingInfos = ribbondefinition.Item2;
 
                     MVVMStatic.Adapter.VMCreated += Adapter_VMCreated;
@@ -179,9 +165,9 @@
                 var bindinginfo = GetResourceLabelBinding(control.Id);
                 if (bindinginfo != null)
                 {
-                    if (extRibbonData != null)
+                    if (addInInformation != null)
                     {
-                        return extRibbonData.GetLocalizedString(bindinginfo.ResourceKey);
+                        return addInInformation.GetLocalizedString(bindinginfo.ResourceKey);
                     }
                     return bindinginfo.ResourceKey;
                 }
@@ -463,17 +449,21 @@
                     case RibbonBindingType.ItemImage:
                     case RibbonBindingType.Invalidation:
                         boundObject = new BoundControl();
-                        boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, (eArgs) =>
+                        currentdispatcher.Invoke(() =>
                         {
-                            InvalidateRibbon(bindingInfo.ID);
-                        }, true);
+                            boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, (eArgs) =>
+                            {
+                                InvalidateRibbon(bindingInfo.ID);
+                            }, true);
+                        });
                         break;
-
-
                     case RibbonBindingType.Command:
                     case RibbonBindingType.ToggleCommand:
                         boundObject = new BoundControl();
-                        boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, null, false);
+                        currentdispatcher.Invoke(() =>
+                        {
+                            boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, null, false);
+                        });
                         break;
 
                     case RibbonBindingType.GalleryItemsSource:
@@ -481,7 +471,10 @@
                         boundObject.BindingInfo = bindingInfo;
                         boundObject.Hwnd = hwnd;
                         boundObject.BelongsToVM = belongsToVm;
-                        boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, null, false);
+                        currentdispatcher.Invoke(() =>
+                        {
+                            boundObject.Binding = new BindingObject(bindingSource, bindingInfo.BindingPath, null, false);
+                        });
                         boundObject.Binding.OnChanged = (eArgs) =>
                          {
                              if (eArgs.NewValue is INotifyCollectionChanged collectionChangedNew)
@@ -600,12 +593,17 @@
                     var boundControl = FindBoundCollectionControlsBySourceObject<System.Collections.IList>(sender);
                     if (boundControl != null)
                     {
+                        List<BoundControl> toAdd = new List<BoundControl>();
                         foreach (var subbindingInfo in boundControl.BindingInfo.SubInfos)
                         {
                             foreach (var item in e.NewItems)
                             {
-                                CreateBoundObject(item, subbindingInfo, boundControl.Hwnd, boundControl.Binding.SourceObject);
+                                toAdd.Add(CreateBoundObject(item, subbindingInfo, boundControl.Hwnd, boundControl.Binding.SourceObject));
                             }
+                        }
+                        lock (boundVMControlsLock)
+                        {
+                            boundVMControls.AddRange(toAdd);
                         }
                         InvalidateRibbon(boundControl.BindingInfo.ID);
                     }

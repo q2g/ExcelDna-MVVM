@@ -38,6 +38,7 @@
         private NetOffice.ExcelApi.Application Application;
         object sheetID2VMsLock = new object();
         private Dictionary<string, List<object>> sheetID2VMs = new Dictionary<string, List<object>>();
+
         #endregion
 
         #region Events
@@ -259,12 +260,32 @@
             try
             {
                 var types = vmImplementationTypes[typeof(T)];
-                createdVms = types.AsParallel().Select((type) =>
+                createdVms = types.Select((type) =>
                   {
                       try
                       {
                           logger.Info($"Create VM for Type: {type?.FullName}");
                           var vm = Activator.CreateInstance(type);
+                          //if (typeof(T) == typeof(IAppVM))
+                          //{
+                          //    (vm as IAppVM).WindowService = new WindowService()
+                          //    {
+                          //        RibbonHeight = Application.CommandBars["Ribbon"].Height,
+                          //        RibbonWidth = Application.CommandBars["Ribbon"].Width
+                          //    };
+                          //}
+                          //var piWindowService = type.GetProperty("WindowService");
+                          //if (piWindowService != null)
+                          //{
+                          //    if (piWindowService.PropertyType.FullName == typeof(WindowService).FullName)
+                          //    {
+                          //        piWindowService.SetValue(vm, new WindowService()
+                          //        {
+                          //            RibbonHeight = Application.CommandBars["Ribbon"].Height,
+                          //            RibbonWidth = Application.CommandBars["Ribbon"].Width
+                          //        });
+                          //    }
+                          //}
                           return vm;
                       }
                       catch (Exception ex)
@@ -274,26 +295,26 @@
                       return null;
                   }).ToList();
                 Task.Run(() =>
-                {
-                    lock (vmslock)
-                    {
-                        try
-                        {
-                            foreach (var vm in createdVms)
-                            {
-                                if (!vms.ContainsKey(hwnd))
-                                    vms.Add(hwnd, new List<object>());
-                                vms[hwnd].Add(vm);
-                                logger.Trace(() => GetVMsCount());
-                            }
-                            VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.Error(ex);
-                        }
-                    }
-                });
+                                {
+                                    lock (vmslock)
+                                    {
+                                        try
+                                        {
+                                            foreach (var vm in createdVms)
+                                            {
+                                                if (!vms.ContainsKey(hwnd))
+                                                    vms.Add(hwnd, new List<object>());
+                                                vms[hwnd].Add(vm);
+                                                logger.Trace(() => GetVMsCount());
+                                            }
+                                            VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            logger.Error(ex);
+                                        }
+                                    }
+                                });
             }
             catch (Exception ex)
             {

@@ -40,6 +40,9 @@
     <!-- Resources -->
     <EmbeddedResource Update="Properties\Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />
     <Compile Update="Properties\Resources.Designer.cs" AutoGen="True" DependentUpon="Resources.resx" DesignTime="True" />
+    <None Update="GUI\wdwpfOverlayDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </None>
     <None Update="Properties\ExcelDna.Build2.props">
       <Generator>SettingsSingleFileGenerator</Generator>
     </None>
