@@ -10,7 +10,16 @@
     {
         private bool _suppress;
         private Action<DependencyPropertyChangedEventArgs> _onChanged;
+        public Action<DependencyPropertyChangedEventArgs> OnChanged
+        {
+            get => _onChanged; set
+            {
+                _onChanged = value;
+                _onChanged?.Invoke(new DependencyPropertyChangedEventArgs(ValueProperty, null, CachedData));
+            }
+        }
 
+        #region ctor
         public BindingObject(object source, string bindingPath, Action<DependencyPropertyChangedEventArgs> onChanged, bool supressFireOnBindingInit = true)
         {
             using (SuppressNotifications(supressFireOnBindingInit))
@@ -23,6 +32,7 @@
                 BindingOperations.SetBinding(this, ValueProperty, binding);
             }
         }
+        #endregion
 
         private Binding binding;
         public object SourceObject

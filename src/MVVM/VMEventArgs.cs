@@ -2,11 +2,12 @@
 {
     #region Usings
     using System;
+    using System.Collections.Generic;
     #endregion
 
     public class VMEventArgs : EventArgs
     {
-        public object VM { get; set; }
+        public List<object> VMs { get; set; }
         public int HWND { get; set; }
     }
 }

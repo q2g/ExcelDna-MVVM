@@ -24,6 +24,7 @@
 
 
         #region Variables & Properties
+        object vmslock = new object();
         private Dictionary<int, List<object>> vms = new Dictionary<int, List<object>>();
         private Dictionary<Type, PropertyInfo> propertyInfos = new Dictionary<Type, PropertyInfo>();
         private Dictionary<Type, List<Type>> vmImplementationTypes = new Dictionary<Type, List<Type>>();
@@ -35,6 +36,7 @@
             }
         }
         private NetOffice.ExcelApi.Application Application;
+        object sheetID2VMsLock = new object();
         private Dictionary<string, List<object>> sheetID2VMs = new Dictionary<string, List<object>>();
         #endregion
 
@@ -177,39 +179,44 @@
                                  return;
                              }
                          }
-
-                         vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
-                         foreach (var hwnd in removedHwnds)
+                         lock (vmslock)
                          {
-                             var vmsToRemove = vms[hwnd].ToList();
-                             foreach (var vm in vmsToRemove)
+                             vms.Keys.ToList().Diff(existingHwnds, out var newHwnds, out var removedHwnds);
+                             foreach (var hwnd in removedHwnds)
                              {
-                                 vms[hwnd].Remove(vm);
-                                 VMDeleted?.Invoke(this, new VMEventArgs() { VM = vm });
-                                 logger.Trace(() => GetVMsCount());
+                                 var vmsToRemove = vms[hwnd].ToList();
+                                 foreach (var vm in vmsToRemove)
+                                 {
+                                     vms[hwnd].Remove(vm);
+                                     logger.Trace(() => GetVMsCount());
+                                 }
+                                 VMDeleted?.Invoke(this, new VMEventArgs() { VMs = vmsToRemove });
+
+                                 vms.Remove(hwnd);
                              }
-                             vms.Remove(hwnd);
                          }
 
-
-                         sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
-                         var allvms = vms.SelectMany(ele => ele.Value).ToList();
-                         foreach (var sheetid in removedSheetIds)
+                         lock (sheetID2VMsLock)
                          {
-                             var vmsToRemove = sheetID2VMs[sheetid].ToList();
-                             foreach (var vmToRemove in vmsToRemove)
+                             sheetID2VMs.Keys.ToList().Diff(existingSheetIds, out var newSheetIds, out var removedSheetIds);
+                             var allvms = vms.SelectMany(ele => ele.Value).ToList();
+                             foreach (var sheetid in removedSheetIds)
                              {
-                                 foreach (var item in vms)
+                                 var vmsToRemove = sheetID2VMs[sheetid].ToList();
+                                 foreach (var vmToRemove in vmsToRemove)
                                  {
-                                     if (item.Value.Contains(vmToRemove))
+                                     foreach (var item in vms)
                                      {
-                                         item.Value.Remove(vmToRemove);
-                                         VMDeleted?.Invoke(this, new VMEventArgs() { VM = vmToRemove });
-                                         logger.Trace(() => GetVMsCount());
+                                         if (item.Value.Contains(vmToRemove))
+                                         {
+                                             item.Value.Remove(vmToRemove);
+                                             logger.Trace(() => GetVMsCount());
+                                         }
                                      }
                                  }
+                                 VMDeleted?.Invoke(this, new VMEventArgs() { VMs = vmsToRemove });
+                                 sheetID2VMs.Remove(sheetid);
                              }
-                             sheetID2VMs.Remove(sheetid);
                          }
 
                      }
@@ -252,26 +259,41 @@
             try
             {
                 var types = vmImplementationTypes[typeof(T)];
-                foreach (var type in types)
+                createdVms = types.AsParallel().Select((type) =>
+                  {
+                      try
+                      {
+                          logger.Info($"Create VM for Type: {type?.FullName}");
+                          var vm = Activator.CreateInstance(type);
+                          return vm;
+                      }
+                      catch (Exception ex)
+                      {
+                          logger.Error(ex);
+                      }
+                      return null;
+                  }).ToList();
+                Task.Run(() =>
                 {
-                    try
+                    lock (vmslock)
                     {
-                        logger.Info($"Create VM for Type: {type?.FullName}");
-                        var vm = Activator.CreateInstance(type);
-                        createdVms.Add(vm);
-
-                        if (!vms.ContainsKey(hwnd))
-                            vms.Add(hwnd, new List<object>());
-                        vms[hwnd].Add(vm);
-
-                        logger.Trace(() => GetVMsCount());
-                        VMCreated?.Invoke(this, new VMEventArgs() { VM = vm, HWND = hwnd });
+                        try
+                        {
+                            foreach (var vm in createdVms)
+                            {
+                                if (!vms.ContainsKey(hwnd))
+                                    vms.Add(hwnd, new List<object>());
+                                vms[hwnd].Add(vm);
+                                logger.Trace(() => GetVMsCount());
+                            }
+                            VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error(ex);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex);
-                    }
-                }
+                });
             }
             catch (Exception ex)
             {
@@ -282,16 +304,16 @@
 
         private string GetVMsCount()
         {
-            var allAppVms = vms.SelectMany(ele => ele.Value)
+            var AppVmCount = vms.SelectMany(ele => ele.Value)
                 .Select(ele => ele.GetType()).ToList()
                 .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IAppVM).FullName));
-            var allWorkbookVms = vms.SelectMany(ele => ele.Value)
+            var WorkbookVmCount = vms.SelectMany(ele => ele.Value)
                 .Select(ele => ele.GetType()).ToList()
                 .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IWorkbookVM).FullName));
-            var allSheetVms = vms.SelectMany(ele => ele.Value)
+            var SheetVmCount = vms.SelectMany(ele => ele.Value)
                 .Select(ele => ele.GetType()).ToList()
                 .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IWorksheetVM).FullName));
-            return $"*****************************AppVMs:{allAppVms}, WorkbookVMs:{allWorkbookVms}, WorksheetVMs:{allSheetVms}******************************";
+            return $"*****************************AppVMs:{AppVmCount}, WorkbookVMs:{WorkbookVmCount}, WorksheetVMs:{SheetVmCount}******************************";
         }
 
         private Task<WorkbookData> ConvertWorkbookAsync(Workbook wb)
@@ -327,7 +349,15 @@
                                     if (!sheetID2VMs.ContainsKey(id))
                                     {//TODO: should there be a worksheet VM for every Window of the WB?
                                      //Is there a case where different Workbookwindows have different sheets?
-                                        sheetID2VMs.Add(id, CreateVMImplementations<IWorksheetVM>(hwnd));
+                                        var impls = CreateVMImplementations<IWorksheetVM>(hwnd);
+                                        Task.Run(() =>
+                                        {
+                                            lock (sheetID2VMsLock)
+                                            {
+                                                if (!sheetID2VMs.ContainsKey(id))
+                                                    sheetID2VMs.Add(id, impls);
+                                            }
+                                        });
                                     }
                                 }
                             }

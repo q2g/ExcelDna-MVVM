@@ -6,7 +6,7 @@
     using System.Runtime.CompilerServices;
     #endregion
 
-    class BoundControl
+    public class BoundControl
     {
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
