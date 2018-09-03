@@ -3,14 +3,15 @@ using System.Windows.Input;
 
 namespace ExcelDna_MVVM.Ribbon
 {
-    class AddInInformationWrapper : IAddInInformation
+    class AddInInformationProxy : IAddInInformation
     {
         #region ctor
-        public AddInInformationWrapper(object objToWrap)
+        public AddInInformationProxy(object objToWrap)
         {
             objectTowrap = objToWrap;
+            //TODO: Cache this
             miGetRibbonXML = objectTowrap.GetType().GetMethod(nameof(IAddInInformation.GetRibbonXML));
-            miGetLocalizedString = objectTowrap.GetType().GetMethod(nameof(IAddInInformation.GetLocalizedString));
+            miGetResource = objectTowrap.GetType().GetMethod(nameof(IAddInInformation.GetResource));
             piInvalidateRibbonCommand = objectTowrap.GetType().GetProperty(nameof(IAddInInformation.InvalidateRibbonCommand));
         }
         #endregion
@@ -18,7 +19,7 @@ namespace ExcelDna_MVVM.Ribbon
         #region Properties & variables
         object objectTowrap;
         MethodInfo miGetRibbonXML;
-        MethodInfo miGetLocalizedString;
+        MethodInfo miGetResource;
         PropertyInfo piInvalidateRibbonCommand;
         #endregion
 
@@ -29,15 +30,17 @@ namespace ExcelDna_MVVM.Ribbon
             set => piInvalidateRibbonCommand.SetValue(objectTowrap, value);
         }
 
-        public string GetLocalizedString(string key)
+        public object GetResource(string key)
         {
-            return (string)miGetLocalizedString.Invoke(objectTowrap, new object[] { key });
+            return miGetResource.Invoke(objectTowrap, new object[] { key });
         }
 
         public string GetRibbonXML()
         {
             return (string)miGetRibbonXML.Invoke(objectTowrap, new object[] { });
         }
+
+
         #endregion
 
 

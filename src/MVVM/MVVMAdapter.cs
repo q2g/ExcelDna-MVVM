@@ -3,6 +3,7 @@
     #region Usings
     using ExcelDna.Integration;
     using ExcelDna_MVVM.Environment;
+    using ExcelDna_MVVM.GUI;
     using ExcelDna_MVVM.MVVM.ExcelData;
     using ExcelDna_MVVM.Utils;
     using NetOffice;
@@ -266,26 +267,34 @@
                       {
                           logger.Info($"Create VM for Type: {type?.FullName}");
                           var vm = Activator.CreateInstance(type);
-                          //if (typeof(T) == typeof(IAppVM))
-                          //{
-                          //    (vm as IAppVM).WindowService = new WindowService()
-                          //    {
-                          //        RibbonHeight = Application.CommandBars["Ribbon"].Height,
-                          //        RibbonWidth = Application.CommandBars["Ribbon"].Width
-                          //    };
-                          //}
-                          //var piWindowService = type.GetProperty("WindowService");
-                          //if (piWindowService != null)
-                          //{
-                          //    if (piWindowService.PropertyType.FullName == typeof(WindowService).FullName)
-                          //    {
-                          //        piWindowService.SetValue(vm, new WindowService()
-                          //        {
-                          //            RibbonHeight = Application.CommandBars["Ribbon"].Height,
-                          //            RibbonWidth = Application.CommandBars["Ribbon"].Width
-                          //        });
-                          //    }
-                          //}
+
+
+                          var piWindowService = type.GetProperty("WindowService");
+                          if (piWindowService != null)
+                          {
+                              var wsProxy = new WindowServiceProxy(Activator.CreateInstance(piWindowService.PropertyType))
+                              {
+                                  Hwnd = hwnd,
+                                  RibbonHeight = Application.CommandBars["Ribbon"].Height,
+                                  RibbonWidth = Application.CommandBars["Ribbon"].Width,
+                                  GetHwnd = () =>
+                                  {
+                                      var retHwnd = hwnd;
+                                      if (retHwnd == -1)
+                                          retHwnd = Application?.ActiveWindow?.Hwnd ?? -1;
+                                      return retHwnd;
+                                  }
+                              };
+                              piWindowService.SetValue(vm, wsProxy.Target);
+
+                              //var obj = Activator.CreateInstance(piWindowService.PropertyType);
+                              //dynamic dynobj = obj;
+                              //dynobj.RibbonHeight = Application.CommandBars["Ribbon"].Height;
+                              //dynobj.RibbonWidth = Application.CommandBars["Ribbon"].Width;
+
+                              //piWindowService.SetValue(vm, obj);
+                          }
+
                           return vm;
                       }
                       catch (Exception ex)
@@ -295,26 +304,26 @@
                       return null;
                   }).ToList();
                 Task.Run(() =>
+                        {
+                            lock (vmslock)
+                            {
+                                try
                                 {
-                                    lock (vmslock)
+                                    foreach (var vm in createdVms)
                                     {
-                                        try
-                                        {
-                                            foreach (var vm in createdVms)
-                                            {
-                                                if (!vms.ContainsKey(hwnd))
-                                                    vms.Add(hwnd, new List<object>());
-                                                vms[hwnd].Add(vm);
-                                                logger.Trace(() => GetVMsCount());
-                                            }
-                                            VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            logger.Error(ex);
-                                        }
+                                        if (!vms.ContainsKey(hwnd))
+                                            vms.Add(hwnd, new List<object>());
+                                        vms[hwnd].Add(vm);
+                                        logger.Trace(() => GetVMsCount());
                                     }
-                                });
+                                    VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
+                                }
+                                catch (Exception ex)
+                                {
+                                    logger.Error(ex);
+                                }
+                            }
+                        });
             }
             catch (Exception ex)
             {

@@ -162,12 +162,12 @@
         {
             try
             {
-                var bindinginfo = GetResourceLabelBinding(control.Id);
+                var bindinginfo = GetResourceBinding(control.Id, RibbonBindingType.LabelFromResource);
                 if (bindinginfo != null)
                 {
                     if (addInInformation != null)
                     {
-                        return addInInformation.GetLocalizedString(bindinginfo.ResourceKey);
+                        return (string)addInInformation.GetResource(bindinginfo.ResourceKey);
                     }
                     return bindinginfo.ResourceKey;
                 }
@@ -181,6 +181,32 @@
                 logger.Error(ex);
             }
             return "";
+        }
+
+        public System.Drawing.Image GetImage(IRibbonControl control)
+        {
+            try
+            {
+                //return LocalizeDictionary.Instance.GetLocalizedObject(ribbon.Tag + "_Image", null, LocalizeDictionary.Instance.Culture) as System.Drawing.Bitmap;
+                var bindinginfo = GetResourceBinding(control.Id, RibbonBindingType.ImageFromResource);
+                if (bindinginfo != null)
+                {
+                    if (addInInformation != null)
+                    {
+                        return (System.Drawing.Image)addInInformation.GetResource(bindinginfo.ResourceKey + "_Image");
+                    }
+                    return null;
+                }
+                else
+                {
+                    return GetBindingValue<System.Drawing.Image>(control, RibbonBindingType.LabelBinding);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+                return null;
+            }
         }
 
         public void OnLoad(IRibbonUI ribbon)
@@ -296,9 +322,9 @@
         #endregion
 
         #region private Functions
-        private BindingInfo GetResourceLabelBinding(string id)
+        private BindingInfo GetResourceBinding(string id, RibbonBindingType bindingType)
         {
-            return bindingInfos.FirstOrDefault(bind => bind.RibbonBindingType == RibbonBindingType.LabelFromResource
+            return bindingInfos.FirstOrDefault(bind => bind.RibbonBindingType == bindingType
                                                              && bind.ID == id);
 
         }
@@ -709,7 +735,7 @@
                 if (types.Count > 0)
                 {
                     var typeToCreate = types.First();
-                    retval = new AddInInformationWrapper(Activator.CreateInstance(typeToCreate));
+                    retval = new AddInInformationProxy(Activator.CreateInstance(typeToCreate));
                 }
             }
             catch (Exception ex)

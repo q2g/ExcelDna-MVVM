@@ -4,7 +4,9 @@
     #region Usings
     using NLog;
     using System;
+    using System.Windows;
     using System.Windows.Controls;
+    using System.Windows.Interop;
     #endregion
 
     public class WindowService
@@ -14,29 +16,57 @@
         #endregion
 
         #region Porperties & Variables
-        public int Hwnd { get; internal set; }
-        public double RibbonWidth { get; internal set; }
-        public double RibbonHeight { get; internal set; }
+        public virtual int Hwnd { get; set; }
+        public virtual double RibbonWidth { get; set; }
+        public virtual double RibbonHeight { get; set; }
+        public virtual Func<int> GetHwnd { get; set; }
         #endregion
 
-        public void ShowOverlay()
+        #region public Functions
+        public virtual void ShowOverlay(UserControl content)
         {
 
             var rct = Win32Helper.GetParentWindowSize(this, new IntPtr(Hwnd));
-            var tlc = new System.Drawing.Point(0, 0);
-            tlc.X = (int)rct.Left + (int)((RibbonWidth * Win32Helper.GetDpiXScale) / 3.0);//(app_scriptedit.CommandBars["Ribbon"].Width
-            tlc.Y = (int)(rct.Top + RibbonHeight * Win32Helper.GetDpiYScale);//app_scriptedit.CommandBars["Ribbon"].Height
+            var tlc = new System.Drawing.Point(0, 0)
+            {
+                X = (int)rct.Left + (int)((RibbonWidth * Win32Helper.GetDpiXScale) / 3.0),
+                Y = (int)(rct.Top + RibbonHeight * Win32Helper.GetDpiYScale)
+            };
 
 
             var wnd = new wdwpfOverlayDialog()
             {
                 TopLeftCorner = new System.Windows.Point(tlc.X, tlc.Y),
+                ChildUserControl = content,
                 HeightMaximized = true,
                 WidthMaximized = false,
-                ChildUserControl = new System.Windows.Controls.UserControl() { Content = new TextBlock() { Text = "Hallo Welt" } },
                 Width = 500,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ParentHwnd = new IntPtr(Hwnd),
             };
+            wnd.ShowDialog();
         }
+
+        public virtual Window GetWindow()
+        {
+            try
+            {
+                var wnd = new Window()
+                {
+                };
+                var hwnd = -1;
+                if (GetHwnd != null)
+                    hwnd = GetHwnd();
+                if (hwnd != -1)
+                    new WindowInteropHelper(wnd).Owner = new IntPtr(hwnd);
+                return wnd;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return null;
+        }
+        #endregion
     }
 }

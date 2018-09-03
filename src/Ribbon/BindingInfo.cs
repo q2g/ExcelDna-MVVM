@@ -17,7 +17,9 @@
         ItemLabel,
         ItemImage,
         LabelBinding,
-        LabelFromResource
+        ImageBinding,
+        LabelFromResource,
+        ImageFromResource
     }
 
 

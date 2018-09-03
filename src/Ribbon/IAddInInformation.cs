@@ -5,7 +5,7 @@ namespace ExcelDna_MVVM.Ribbon
     public interface IAddInInformation
     {
         string GetRibbonXML();
-        string GetLocalizedString(string key);
+        object GetResource(string key);
         ICommand InvalidateRibbonCommand { get; set; }
     }
 }
