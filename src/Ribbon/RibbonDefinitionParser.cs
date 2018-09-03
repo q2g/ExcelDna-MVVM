@@ -49,6 +49,7 @@
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "button", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "toggleButton", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "gallery", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "group", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
                 }
                 return new Tuple<string, List<BindingInfo>>(root.ToString(), bindingInfos);
             }
@@ -71,11 +72,12 @@
                 if (attr != null)
                 {
                     BindingInfo newBindingInfo = null;
-                    if (attr.Value.StartsWith("{Binding"))
+                    string attrValueLower = attr.Value.ToLowerInvariant();
+                    if (attrValueLower.StartsWith("{binding"))
                     {
                         newBindingInfo = new BindingInfo()
                         {
-                            BindingPath = attr.Value.Replace("{Binding", "").Replace("}", "").Trim(),
+                            BindingPath = attr.Value.Substring(9).Replace("}", "").Trim(),
                             RibbonBindingType = bindingType,
                             ID = element.Attributes().FirstOrDefault(atr => atr.Name.LocalName == "id")?.Value ?? "",
                             ParentID = parentID
@@ -91,9 +93,9 @@
                     }
                     else
                     {
-                        if (attr.Value.StartsWith("{Res "))
+                        if (attrValueLower.StartsWith("{res "))
                         {
-                            var resourceKey = attr.Value.Replace("{Res ", "").Replace("}", "").Trim();
+                            var resourceKey = attr.Value.Substring(5).Replace("}", "").Trim();
 
                             newBindingInfo = new BindingInfo()
                             {
