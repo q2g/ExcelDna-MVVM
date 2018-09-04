@@ -227,6 +227,41 @@
             }
         }
 
+        public void OnSelectedChanged(IRibbonControl control, string text)
+        {
+            try
+            {
+                var selchanged = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.ComboboxSelectedChanged);
+                foreach (var ctrl in selchanged)
+                {
+                    if (ctrl.Binding.CachedData is string)//TODO: Remove this Workaround for setting a Value to a Binding for sourceObject which don't have this Property.   
+                    {
+                        ctrl.Binding.Value = text;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+
+        }
+
+        public string GetText(IRibbonControl control)
+        {
+            try
+            {
+                return GetBindingValue<string>(control, RibbonBindingType.ComboboxSelectedText);
+
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return null;
+        }
+
+
         public void OnItemsAction(IRibbonControl control, string id, int index)
         {
             try
@@ -473,6 +508,8 @@
                     case RibbonBindingType.ItemId:
                     case RibbonBindingType.ItemLabel:
                     case RibbonBindingType.ItemImage:
+                    case RibbonBindingType.ComboboxSelectedChanged:
+                    case RibbonBindingType.ComboboxSelectedText:
                     case RibbonBindingType.Invalidation:
                         boundObject = new BoundControl();
                         currentdispatcher.Invoke(() =>

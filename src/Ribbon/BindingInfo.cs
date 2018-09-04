@@ -19,7 +19,9 @@
         LabelBinding,
         ImageBinding,
         LabelFromResource,
-        ImageFromResource
+        ImageFromResource,
+        ComboboxSelectedChanged,
+        ComboboxSelectedText
     }
 
 

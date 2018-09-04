@@ -50,6 +50,9 @@
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "toggleButton", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "gallery", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "group", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "comboBox", "onChange", nameof(CustomUI.OnSelectedChanged), RibbonBindingType.ComboboxSelectedChanged, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "comboBox", "getText", nameof(CustomUI.GetText), RibbonBindingType.ComboboxSelectedText, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "comboBox", "itemssource", "#remove", RibbonBindingType.GalleryItemsSource));
                 }
                 return new Tuple<string, List<BindingInfo>>(root.ToString(), bindingInfos);
             }
@@ -84,11 +87,20 @@
                         };
                         bindingInfos.Add(newBindingInfo);
 
-                        if (controlType == "gallery" && newBindingInfo != null && attributeName == "itemssource")
+                        if ((controlType == "gallery" || controlType == "comboBox") && newBindingInfo != null && attributeName == "itemssource")
                         {
                             newBindingInfo.SubInfos.AddRange(ReplaceBindingAndExtractBindingInfo(element, "gallery", "getItemID", nameof(CustomUI.GetItemID), RibbonBindingType.ItemId, newBindingInfo.ID));
                             newBindingInfo.SubInfos.AddRange(ReplaceBindingAndExtractBindingInfo(element, "gallery", "getItemLabel", nameof(CustomUI.GetItemLabel), RibbonBindingType.ItemLabel, newBindingInfo.ID));
                             newBindingInfo.SubInfos.AddRange(ReplaceBindingAndExtractBindingInfo(element, "gallery", "getItemImage", nameof(CustomUI.GetItemImage), RibbonBindingType.ItemImage, newBindingInfo.ID));
+
+                            newBindingInfo.SubInfos.AddRange(ReplaceBindingAndExtractBindingInfo(element, "comboBox", "getItemID", nameof(CustomUI.GetItemID), RibbonBindingType.ItemId, newBindingInfo.ID));
+                            newBindingInfo.SubInfos.AddRange(ReplaceBindingAndExtractBindingInfo(element, "comboBox", "getItemLabel", nameof(CustomUI.GetItemLabel), RibbonBindingType.ItemLabel, newBindingInfo.ID));
+                            newBindingInfo.SubInfos.AddRange(ReplaceBindingAndExtractBindingInfo(element, "comboBox", "getItemImage", nameof(CustomUI.GetItemImage), RibbonBindingType.ItemImage, newBindingInfo.ID));
+
+                            if (!element.Attributes().Any(atr => atr.Name.LocalName == "getItemCount"))
+                            {
+                                element.Add(new XAttribute("getItemCount", nameof(CustomUI.GetItemCount)));
+                            }
                         }
                     }
                     else
