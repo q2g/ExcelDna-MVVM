@@ -260,7 +260,7 @@
             List<object> createdVms = new List<object>();
             try
             {
-                var types = vmImplementationTypes[typeof(T)];
+                var types = vmImplementationTypes[typeof(T)].Where(type => !type.IsAbstract).ToList();
                 createdVms = types.Select((type) =>
                   {
                       try
@@ -311,10 +311,13 @@
                                 {
                                     foreach (var vm in createdVms)
                                     {
-                                        if (!vms.ContainsKey(hwnd))
-                                            vms.Add(hwnd, new List<object>());
-                                        vms[hwnd].Add(vm);
-                                        logger.Trace(() => GetVMsCount());
+                                        if (vm != null)
+                                        {
+                                            if (!vms.ContainsKey(hwnd))
+                                                vms.Add(hwnd, new List<object>());
+                                            vms[hwnd].Add(vm);
+                                            logger.Trace(() => GetVMsCount());
+                                        }
                                     }
                                     VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
                                 }

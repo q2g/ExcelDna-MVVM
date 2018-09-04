@@ -236,6 +236,8 @@
                 {
                     if (ctrl.Binding.CachedData is string)//TODO: Remove this Workaround for setting a Value to a Binding for sourceObject which don't have this Property.   
                     {
+                        if (text == null)
+                            text = string.Empty; //Never set BindingValue to null, or the Binding is dead //TODO: find a Solution for this
                         ctrl.Binding.Value = text;
                     }
                 }
@@ -252,7 +254,7 @@
             try
             {
                 return GetBindingValue<string>(control, RibbonBindingType.ComboboxSelectedText);
-
+                //TODO: How to Detect when a string Binding is bound but string is null???
             }
             catch (Exception ex)
             {
@@ -260,7 +262,6 @@
             }
             return null;
         }
-
 
         public void OnItemsAction(IRibbonControl control, string id, int index)
         {

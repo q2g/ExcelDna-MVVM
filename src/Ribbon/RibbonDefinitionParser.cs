@@ -52,7 +52,9 @@
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "group", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "comboBox", "onChange", nameof(CustomUI.OnSelectedChanged), RibbonBindingType.ComboboxSelectedChanged, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "comboBox", "getText", nameof(CustomUI.GetText), RibbonBindingType.ComboboxSelectedText, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "group", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "comboBox", "itemssource", "#remove", RibbonBindingType.GalleryItemsSource));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "labelControl", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
                 }
                 return new Tuple<string, List<BindingInfo>>(root.ToString(), bindingInfos);
             }

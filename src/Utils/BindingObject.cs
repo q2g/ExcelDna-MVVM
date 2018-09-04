@@ -28,7 +28,7 @@
 
                 binding = new Binding(bindingPath);
                 binding.Source = source;
-                binding.Mode = BindingMode.TwoWay;
+                binding.Mode = BindingMode.TwoWay;//TODO: BindingMode.TwoWay dont work with Properties with only Get{...}
                 BindingOperations.SetBinding(this, ValueProperty, binding);
             }
         }
