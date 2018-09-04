@@ -15,22 +15,21 @@
         private static Logger logger = LogManager.GetCurrentClassLogger();
         #endregion
 
-        #region Porperties & Variables
-        public virtual int Hwnd { get; set; }
+        #region Porperties & Variables        
         public virtual double RibbonWidth { get; set; }
         public virtual double RibbonHeight { get; set; }
         public virtual Func<int> GetHwnd { get; set; }
         #endregion
 
         #region public Functions
-        public virtual void ShowOverlay(UserControl content)
+        public virtual void ShowOverlay(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
         {
 
-            var rct = Win32Helper.GetParentWindowSize(this, new IntPtr(Hwnd));
+            var rct = Win32Helper.GetParentWindowSize(this, new IntPtr(GetHwnd()));
             var tlc = new System.Drawing.Point(0, 0)
             {
-                X = (int)rct.Left + (int)((RibbonWidth * Win32Helper.GetDpiXScale) / 3.0),
-                Y = (int)(rct.Top + RibbonHeight * Win32Helper.GetDpiYScale)
+                X = (int)(rct.Left + horizontalOffset),
+                Y = (int)(rct.Top + RibbonHeight * Win32Helper.GetDpiYScale + verticalOffset)
             };
 
 
@@ -39,10 +38,10 @@
                 TopLeftCorner = new System.Windows.Point(tlc.X, tlc.Y),
                 ChildUserControl = content,
                 HeightMaximized = true,
-                WidthMaximized = false,
+                WidthMaximized = true,
                 Width = 500,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                ParentHwnd = new IntPtr(Hwnd),
+                ParentHwnd = new IntPtr(GetHwnd()),
             };
             wnd.ShowDialog();
         }

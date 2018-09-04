@@ -71,9 +71,9 @@ namespace ExcelDna_MVVM.GUI
                 piRibbonWidth.SetValue(objectToWrap, value);
             }
         }
-        public override void ShowOverlay(UserControl content)
+        public override void ShowOverlay(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
         {
-            miShowOverlay.Invoke(objectToWrap, new object[] { content });
+            miShowOverlay.Invoke(objectToWrap, new object[] { content, verticalOffset, horizontalOffset });
         }
 
         #endregion

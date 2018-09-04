@@ -274,7 +274,6 @@
                           {
                               var wsProxy = new WindowServiceProxy(Activator.CreateInstance(piWindowService.PropertyType))
                               {
-                                  Hwnd = hwnd,
                                   RibbonHeight = Application.CommandBars["Ribbon"].Height,
                                   RibbonWidth = Application.CommandBars["Ribbon"].Width,
                                   GetHwnd = () =>
