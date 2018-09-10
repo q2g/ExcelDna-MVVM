@@ -275,13 +275,15 @@
                         if (index < list.Count)
                         {
                             var commandParameter = list[index];
-                            var boundCommands = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.Command, boundCollectionControl.Binding.SourceObject);
-                            var boundCommand = boundCommands.FirstOrDefault();
-                            if (boundCommand != null)
+                            var boundCommands = FindBoundControls(control.Id, control.GetHwnd(), RibbonBindingType.Command);//boundCollectionControl.Binding.SourceObject
+                            foreach (var boundCommand in boundCommands)
                             {
-                                if (boundCommand.Binding.CachedData is ICommand command)
+                                if (boundCommand != null)
                                 {
-                                    command?.Execute(commandParameter);
+                                    if (boundCommand.Binding.CachedData is ICommand command)
+                                    {
+                                        command?.Execute(commandParameter);
+                                    }
                                 }
                             }
                         }

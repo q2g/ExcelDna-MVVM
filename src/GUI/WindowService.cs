@@ -7,6 +7,7 @@
     using System.Windows;
     using System.Windows.Controls;
     using System.Windows.Interop;
+    using System.Windows.Threading;
     #endregion
 
     public class WindowService
@@ -19,6 +20,9 @@
         public virtual double RibbonWidth { get; set; }
         public virtual double RibbonHeight { get; set; }
         public virtual Func<int> GetHwnd { get; set; }
+        public virtual Action<object> ShowWaitingControl { get; set; }
+        public virtual Action<object> ShowWaitingText { get; set; }
+        public Dispatcher Dispatcher { get; set; }
         #endregion
 
         #region public Functions

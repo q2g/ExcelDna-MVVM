@@ -2,6 +2,7 @@
 {
     #region Usings
     using ExcelDna.Integration;
+    using ExcelDna.Integration.CustomUI;
     using ExcelDna_MVVM.Environment;
     using ExcelDna_MVVM.GUI;
     using ExcelDna_MVVM.MVVM.ExcelData;
@@ -14,6 +15,9 @@
     using System.Linq;
     using System.Reflection;
     using System.Threading.Tasks;
+    using System.Windows;
+    using System.Windows.Threading;
+    using WPFLocalizeExtension.Engine;
     #endregion
 
     public class MVVMAdapter : IExcelAddIn
@@ -37,8 +41,10 @@
             }
         }
         private NetOffice.ExcelApi.Application Application;
+        Dispatcher currentDispatcher;
         object sheetID2VMsLock = new object();
         private Dictionary<string, List<object>> sheetID2VMs = new Dictionary<string, List<object>>();
+        private CustomTaskPane statusPane;
 
         #endregion
 
@@ -58,7 +64,8 @@
             vmImplementationTypes.Add(typeof(IWorkbookVM), TypeUtils.GetTypesImplementingInterface<IWorkbookVM>());
             vmImplementationTypes.Add(typeof(IWorksheetVM), TypeUtils.GetTypesImplementingInterface<IWorksheetVM>());
             MVVMStatic.Adapter = this;
-            Application = new Application(null, ExcelDnaUtil.Application);
+            currentDispatcher = Dispatcher.CurrentDispatcher;
+            Application = new NetOffice.ExcelApi.Application(null, ExcelDnaUtil.Application);
             Application.NewWorkbookEvent += Application_NewWorkbookEvent;
             Application.WorkbookNewSheetEvent += Application_WorkbookNewSheetEvent;
             Application.WorkbookActivateEvent += Application_WorkbookActivateEvent;
@@ -272,19 +279,27 @@
                           var piWindowService = type.GetProperty("WindowService");
                           if (piWindowService != null)
                           {
-                              var wsProxy = new WindowServiceProxy(Activator.CreateInstance(piWindowService.PropertyType))
+                              var ws = new WindowService()
                               {
                                   RibbonHeight = Application.CommandBars["Ribbon"].Height,
                                   RibbonWidth = Application.CommandBars["Ribbon"].Width,
+                                  Dispatcher = currentDispatcher,
                                   GetHwnd = () =>
                                   {
                                       var retHwnd = hwnd;
                                       if (retHwnd == -1)
                                           retHwnd = Application?.ActiveWindow?.Hwnd ?? -1;
                                       return retHwnd;
-                                  }
+                                  },
+                                  ShowWaitingControl = (control) =>
+                                    {
+                                        currentDispatcher.BeginInvoke((System.Action)(() =>
+                                        {
+                                            ShowWaitingPane(control as UIElement);
+                                        }));
+                                    }
                               };
-                              piWindowService.SetValue(vm, wsProxy.Target);
+                              piWindowService.SetValue(vm, ws);
 
                               //var obj = Activator.CreateInstance(piWindowService.PropertyType);
                               //dynamic dynobj = obj;
@@ -303,29 +318,29 @@
                       return null;
                   }).ToList();
                 Task.Run(() =>
-                        {
-                            lock (vmslock)
-                            {
-                                try
                                 {
-                                    foreach (var vm in createdVms)
+                                    lock (vmslock)
                                     {
-                                        if (vm != null)
+                                        try
                                         {
-                                            if (!vms.ContainsKey(hwnd))
-                                                vms.Add(hwnd, new List<object>());
-                                            vms[hwnd].Add(vm);
-                                            logger.Trace(() => GetVMsCount());
+                                            foreach (var vm in createdVms)
+                                            {
+                                                if (vm != null)
+                                                {
+                                                    if (!vms.ContainsKey(hwnd))
+                                                        vms.Add(hwnd, new List<object>());
+                                                    vms[hwnd].Add(vm);
+                                                    logger.Trace(() => GetVMsCount());
+                                                }
+                                            }
+                                            VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            logger.Error(ex);
                                         }
                                     }
-                                    VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
-                                }
-                                catch (Exception ex)
-                                {
-                                    logger.Error(ex);
-                                }
-                            }
-                        });
+                                });
             }
             catch (Exception ex)
             {
@@ -333,7 +348,40 @@
             }
             return createdVms;
         }
+        public void ShowWaitingPane(UIElement child)
+        {
+            if (statusPane == null)
+            {
+                try
+                {
+                    var container = new ucwfWPFContainer();
+                    logger.Info("Conatiner: " + container.ToString());
+                    statusPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture)));
+                    (statusPane.ContentControl as ucwfWPFContainer).Child = child;
+                    statusPane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionBottom;
 
+                    var startHeight = 60.0;
+                    if (ExcelDnaUtil.ExcelVersion > 15)
+                        startHeight = 80.0;
+
+                    statusPane.Height = (int)(startHeight * Win32Helper.GetDpiYScale);
+                    statusPane.DockPositionRestrict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNoChange;
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex);
+                }
+            }
+
+            if (statusPane != null)
+            {
+                if (child != null)
+                {
+                    (statusPane.ContentControl as ucwfWPFContainer).Child = child;
+                }
+                statusPane.Visible = (child != null);
+            }
+        }
         private string GetVMsCount()
         {
             var AppVmCount = vms.SelectMany(ele => ele.Value)
@@ -381,7 +429,7 @@
                                     if (!sheetID2VMs.ContainsKey(id))
                                     {//TODO: should there be a worksheet VM for every Window of the WB?
                                      //Is there a case where different Workbookwindows have different sheets?
-                                        var impls = CreateVMImplementations<IWorksheetVM>(hwnd);
+                                var impls = CreateVMImplementations<IWorksheetVM>(hwnd);
                                         Task.Run(() =>
                                         {
                                             lock (sheetID2VMsLock)
