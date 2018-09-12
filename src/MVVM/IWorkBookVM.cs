@@ -5,6 +5,6 @@
 
     public interface IWorkbookVM : IVM
     {
-
+        string WorkbookID { get; set; }
     }
 }

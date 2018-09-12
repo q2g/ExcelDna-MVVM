@@ -23,7 +23,6 @@
             Task waitingTask = Task.Run(() =>
             {
                 resetEvent.WaitOne();
-                int a = 7;
             });
             ExcelAsyncUtil.QueueAsMacro(() =>
             {
