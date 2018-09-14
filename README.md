@@ -6,7 +6,8 @@ Declare WPF like Databinding in your .dna - File.
 ```xml
 ...
 <group id='seTest' label='Test'>
-  <button id='testButton' label='My cool databound Button' onAction='{Binding TestCommand}' getEnabled='{Binding ButtonEnabled}' getVisible='{Binding ButtonVisible}'/>  
+  <button id='testButton' label='My cool databound Button' onAction='{Binding TestCommand}' 
+          getEnabled='{Binding ButtonEnabled}' getVisible='{Binding ButtonVisible}'/>  
 </group>
 ...
 ```
