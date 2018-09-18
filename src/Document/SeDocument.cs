@@ -27,6 +27,10 @@
         private readonly Dictionary<string, string> documentProperties = new Dictionary<string, string>();
         internal dynamic Workbook { get; set; }
         private object CustomXMLPartsLock = new object();
+        public string DocumentID
+        {
+            get { return Workbook.Name; }
+        }
         #endregion
 
         #region Public Functions
@@ -117,8 +121,7 @@
                     if (tablesJson != "")
                     {
                         dynamic dyntables = JObject.Parse(tablesJson);
-                        var properties = dyntables.Properties().ToList();
-                        foreach (var property in properties)
+                        foreach (var property in dyntables.Properties())
                         {
                             if (property.Name != "id" && property.Name != "data" && property.Name != "online")
                             {
@@ -341,11 +344,6 @@
                 logger.Error(ex);
             }
             return null;
-        }
-
-        public string GetDocumentID()
-        {
-            return Workbook.Name;
         }
         #endregion
 

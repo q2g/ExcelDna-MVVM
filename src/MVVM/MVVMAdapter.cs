@@ -74,19 +74,28 @@
             app.WorkbookNewSheetEvent += Application_WorkbookNewSheetEvent;
             app.WorkbookActivateEvent += Application_WorkbookActivateEvent;
             app.SheetActivateEvent += Application_SheetActivateEvent;
+            app.WorkbookOpenEvent += App_WorkbookOpenEvent;
             NetOffice.Core.Default.ProxyCountChanged += Default_ProxyCountChanged;
             CreateVMsForApplication(Application);
         }
-        private void Default_ProxyCountChanged(int proxyCount)
-        {
-            logger.Trace($"ProxyCount Changed value={proxyCount}");
-        }
+
+
         #endregion
 
         #region public Functions       
         #endregion
 
         #region Eventhandler
+        private void Default_ProxyCountChanged(int proxyCount)
+        {
+            logger.Trace($"ProxyCount Changed value={proxyCount}");
+        }
+
+        private void App_WorkbookOpenEvent(Workbook Wb)
+        {
+            Application_NewWorkbookEvent(Wb);
+        }
+
         private void Application_WorkbookActivateEvent(Workbook wb)
         {
             try
@@ -343,6 +352,7 @@
                     {
                         Workbook = workbook
                     };
+                    documentService.LoadTableJsons();
                 }
                 var types = vmImplementationTypes[typeof(T)].Where(type => !type.IsAbstract).ToList();
                 createdVms = types.Select((type) =>
