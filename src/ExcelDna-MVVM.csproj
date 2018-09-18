@@ -33,11 +33,11 @@
 
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
 
-    <PackageReference Include="NLog" Version="4.5.8" />
+    <PackageReference Include="NLog" Version="4.5.9" />
 
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
 
-    <PackageReference Include="WpfLocalizeExtension" Version="3.1.2" />
+    <PackageReference Include="WpfLocalizeExtension" Version="3.2.0" />
   
     <!-- Resources -->
     <EmbeddedResource Update="Properties\Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />

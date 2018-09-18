@@ -3,6 +3,7 @@
     #region Usings
     using ExcelDna.Integration;
     using ExcelDna.Integration.CustomUI;
+    using ExcelDna_MVVM.Document;
     using ExcelDna_MVVM.Environment;
     using ExcelDna_MVVM.GUI;
     using ExcelDna_MVVM.MVVM.ExcelData;
@@ -38,6 +39,8 @@
                 return vms;
             }
         }
+        public Dictionary<Type, PropertyInfoCacheItem> servicePropetyInfos = new Dictionary<Type, PropertyInfoCacheItem>();
+        object servicePropetyInfosLock = new object();
         //private NetOffice.ExcelApi.Application Application;
         dynamic Application;
         Dispatcher currentDispatcher;
@@ -92,6 +95,9 @@
                 wb.Dispose();
 
                 dynamic dynWb = objWb as dynamic;
+                int aa = dynWb.CustomXMLParts.Count;
+                dynamic ii = dynWb.CustomDocumentProperties;
+
                 logger.Trace($"workbook activated {dynWb.Name}");
                 RemoveUnusedVms();
             }
@@ -138,8 +144,8 @@
 
                         foreach (var hwnd in res.Result.hwnds)
                         {
-                            CreateVMImplementations<IWorkbookVM>(hwnd, res.Result);
-                            CreateSheetVMsFromWorkbookAsync(res.Result);
+                            CreateVMImplementations<IWorkbookVM>(hwnd, res.Result, dynWb);
+                            CreateSheetVMsFromWorkbookAsync(res.Result, dynWb);
                         }
 
                     }
@@ -165,7 +171,7 @@
                 ConvertWorkbookAsync(dynWb).ContinueWith((res) =>
                 {
                     if (!res.IsFaulted && res != null)
-                        CreateSheetVMsFromWorkbookAsync(res.Result);
+                        CreateSheetVMsFromWorkbookAsync(res.Result, dynWb);
                 });
             }
             catch (Exception ex)
@@ -279,7 +285,7 @@
                 if (vms == null)
                     vms = new Dictionary<int, List<object>>();
 
-                CreateVMImplementations<IAppVM>(-1, null);
+                CreateVMImplementations<IAppVM>(-1, null, null);
 
                 foreach (var workbook in app.Workbooks)
                 {
@@ -292,83 +298,124 @@
             }
         }
 
-        private List<object> CreateVMImplementations<T>(int hwnd, WorkbookData workbookdata) where T : IVM
+        private PropertyInfoCacheItem GetServiceProperetyInfo(Type forType)
+        {
+            PropertyInfoCacheItem retval = null;
+            try
+            {
+                if (!servicePropetyInfos.ContainsKey(forType))
+                {
+                    retval = new PropertyInfoCacheItem
+                    {
+                        PiWindowService = forType.GetProperties().FirstOrDefault(prop => prop.PropertyType.FullName == typeof(WindowService).FullName),
+                        PiDocumentPropertyService = forType.GetProperties().FirstOrDefault(prop => prop.PropertyType.FullName == typeof(SeDocument).FullName)
+                    };
+                }
+                else
+                {
+                    return servicePropetyInfos[forType];
+                }
+                lock (servicePropetyInfosLock)
+                {
+                    if (!servicePropetyInfos.ContainsKey(forType) && retval != null)
+                    {
+                        servicePropetyInfos.Add(forType, retval);
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return retval;
+        }
+
+        private List<object> CreateVMImplementations<T>(int hwnd, WorkbookData workbookdata, dynamic workbook) where T : IVM
         {
             List<object> createdVms = new List<object>();
             try
             {
+                SeDocument documentService = null;
+                if (typeof(T) == typeof(IWorkbookVM))
+                {
+                    documentService = new SeDocument()
+                    {
+                        Workbook = workbook
+                    };
+                }
                 var types = vmImplementationTypes[typeof(T)].Where(type => !type.IsAbstract).ToList();
                 createdVms = types.Select((type) =>
-                  {
-                      try
-                      {
-                          logger.Info($"Create VM for Type: {type?.FullName}");
-                          var vm = Activator.CreateInstance(type);
+                {
+                    try
+                    {
+                        logger.Info($"Create VM for Type: {type?.FullName}");
+                        var vm = Activator.CreateInstance(type);
 
 
-                          var piWindowService = type.GetProperty("WindowService");
-                          if (piWindowService != null)
-                          {
-                              var ws = new WindowService()
-                              {
-                                  RibbonHeight = Application.CommandBars["Ribbon"].Height,
-                                  RibbonWidth = Application.CommandBars["Ribbon"].Width,
-                                  Dispatcher = currentDispatcher,
-                                  GetHwnd = () =>
-                                  {
-                                      var retHwnd = hwnd;
-                                      if (retHwnd == -1)
-                                          retHwnd = Application?.ActiveWindow?.Hwnd ?? -1;
-                                      return retHwnd;
-                                  },
-                                  ShowWaitingControl = (control) =>
-                                    {
-                                        currentDispatcher.BeginInvoke((System.Action)(() =>
-                                        {
-                                            ShowWaitingPane(control as UIElement);
-                                        }));
-                                    }
-                              };
-                              piWindowService.SetValue(vm, ws);
-                          }
-
-                          if (vm is IWorkbookVM workbookVM)
-                          {
-                              workbookVM.WorkbookID = workbookdata.Name;
-                          }
-
-                          return vm;
-                      }
-                      catch (Exception ex)
-                      {
-                          logger.Error(ex);
-                      }
-                      return null;
-                  }).ToList();
-                Task.Run(() =>
+                        var servicePropertyInfos = GetServiceProperetyInfo(type);
+                        if (servicePropertyInfos != null)
+                        {
+                            if (servicePropertyInfos.PiWindowService != null)
+                            {
+                                var ws = new WindowService()
                                 {
-                                    lock (vmslock)
+                                    RibbonHeight = Application.CommandBars["Ribbon"].Height,
+                                    RibbonWidth = Application.CommandBars["Ribbon"].Width,
+                                    Dispatcher = currentDispatcher,
+                                    GetHwnd = () =>
                                     {
-                                        try
-                                        {
-                                            foreach (var vm in createdVms)
-                                            {
-                                                if (vm != null)
-                                                {
-                                                    if (!vms.ContainsKey(hwnd))
-                                                        vms.Add(hwnd, new List<object>());
-                                                    vms[hwnd].Add(vm);
-                                                    logger.Trace(() => GetVMsCount());
-                                                }
-                                            }
-                                            VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            logger.Error(ex);
-                                        }
+                                        var retHwnd = hwnd;
+                                        if (retHwnd == -1)
+                                            retHwnd = Application?.ActiveWindow?.Hwnd ?? -1;
+                                        return retHwnd;
+                                    },
+                                    ShowWaitingControl = (control) =>
+                                      {
+                                          ShowWaitingPane(control as UIElement);
+                                      }
+                                };
+                                servicePropertyInfos.PiWindowService.SetValue(vm, ws);
+                            }
+
+                            if (servicePropertyInfos.PiDocumentPropertyService != null && documentService != null)
+                            {
+                                servicePropertyInfos.PiDocumentPropertyService.SetValue(vm, documentService);
+                            }
+                        }
+
+                        return vm;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex);
+                    }
+                    return null;
+                }).ToList();
+                Task.Run(() =>
+                    {
+                        lock (vmslock)
+                        {
+                            try
+                            {
+                                foreach (var vm in createdVms)
+                                {
+                                    if (vm != null)
+                                    {
+                                        if (!vms.ContainsKey(hwnd))
+                                            vms.Add(hwnd, new List<object>());
+                                        vms[hwnd].Add(vm);
+                                        logger.Trace(() => GetVMsCount());
                                     }
-                                });
+                                }
+                                VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.Error(ex);
+                            }
+                        }
+                    });
             }
             catch (Exception ex)
             {
@@ -444,7 +491,7 @@
 
         }
 
-        private Task CreateSheetVMsFromWorkbookAsync(WorkbookData wbd)
+        private Task CreateSheetVMsFromWorkbookAsync(WorkbookData wbd, dynamic workbook)
         {
             return Task.Run(() =>
             {
@@ -462,7 +509,7 @@
                                     if (!sheetID2VMs.ContainsKey(id))
                                     {//TODO: should there be a worksheet VM for every Window of the WB?
                                      //Is there a case where different Workbookwindows have different sheets?
-                                        var impls = CreateVMImplementations<IWorksheetVM>(hwnd, wbd);
+                                        var impls = CreateVMImplementations<IWorksheetVM>(hwnd, wbd, workbook);
                                         Task.Run(() =>
                                         {
                                             lock (sheetID2VMsLock)
