@@ -245,6 +245,12 @@
                                     logger.Trace(() => GetVMsCount());
                                 }
                                 VMDeleted?.Invoke(this, new VMEventArgs() { VMs = vmsToRemove });
+                                foreach (var vm in vmsToRemove)
+                                {
+                                    if (vm is IDisposable vmToDispose)
+                                        vmToDispose.Dispose();
+                                    logger.Trace(() => GetVMsCount());
+                                }
 
                                 vms.Remove(hwnd);
                             }

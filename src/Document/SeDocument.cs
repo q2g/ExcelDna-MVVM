@@ -25,7 +25,7 @@
         object documentPropertiesLock = new object();
         private readonly Dictionary<string, (bool IsCustomDocumentProperty, string json, Dictionary<string, string> seData)> tables = new Dictionary<string, (bool IsCustomDocumentProperty, string json, Dictionary<string, string> seData)>();
         private readonly Dictionary<string, string> documentProperties = new Dictionary<string, string>();
-        internal dynamic Workbook { get; set; }
+        public dynamic Workbook { get; set; }
         private object CustomXMLPartsLock = new object();
         public string DocumentID
         {

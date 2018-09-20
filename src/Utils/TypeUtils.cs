@@ -1,4 +1,5 @@
-﻿using NLog;
+﻿using ExcelDna_MVVM.MVVM;
+using NLog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +21,10 @@ namespace ExcelDna_MVVM.Utils
                 var assemmblys = AppDomain.CurrentDomain.GetAssemblies(); //TODO: This works only in Packed Mode
                 foreach (var assembly in assemmblys)
                 {
-                    var vmTypes = assembly.GetTypes().Where(typ => typ.GetInterfaces().Any(inter => inter.FullName == typeof(T).FullName)).ToList();//TODO:comparing Types is working only when LoadFromBytes is set to False 
+                    var vmTypes = assembly.GetTypes()
+                        .Where(typ => !typ.CustomAttributes.Any(attr => attr.AttributeType == typeof(DontCreateAttribute)))
+                        .Where(typ => typ.GetInterfaces().Any(inter => inter.FullName == typeof(T).FullName))
+                        .ToList();//TODO:comparing Types is working only when LoadFromBytes is set to False 
                     retval.AddRange(vmTypes);
                 }
             }
