@@ -49,6 +49,8 @@
         {
             try
             {
+                if (key == "id" || key == "data")
+                    throw new Exception("Keys 'data' and 'id' are not allowed");
                 bool mustsave = false;
                 lock (tablesLock)
                 {
@@ -123,7 +125,7 @@
                         dynamic dyntables = JObject.Parse(tablesJson);
                         foreach (var property in dyntables.Properties())
                         {
-                            if (property.Name != "id" && property.Name != "data" && property.Name != "online")
+                            if (property.Name != "tables")
                             {
                                 lock (documentPropertiesLock)
                                 {
@@ -139,10 +141,14 @@
                                 string tableId = item?.id?.ToString() ?? "";
                                 string tabledata = item?.data?.ToString() ?? "";
                                 var seData = new Dictionary<string, string>();
-                                string onlinevalue = item?.online?.ToString() ?? "empty";
-                                if (onlinevalue != "empty")
+
+                                foreach (var property in item.Properties())
                                 {
-                                    seData.Add("online", onlinevalue);
+                                    if (property.Name != "id" && property.Name != "data")
+                                    {
+                                        if (!seData.ContainsKey(property.Name))
+                                            seData.Add(property.Name, property.Value.ToString());
+                                    }
                                 }
 
                                 tables.Add(tableId, (false, tabledata, seData));
@@ -161,7 +167,8 @@
                         foreach (var tb in worksheet.ListObjects)
                         {
                             var guID = tb.Comment;
-                            var json = ReadLongString(props, guID);
+                            string json = ReadLongString(props, guID).ToString();
+                            logger.Trace($"found Value in documentpropertyies for Key:{guID} json:{json}");
                             if (!tables.ContainsKey(guID))
                                 tables.Add(guID, (true, json, new Dictionary<string, string>()));
                         }
@@ -234,9 +241,9 @@
                             dynTable.id = item.Key;
                             dynTable.data = JObject.Parse(item.Value.json);
                             string online = GetTableData(item.Key, "online");
-                            if (!string.IsNullOrEmpty(online))
+                            foreach (var prop in item.Value.seData)
                             {
-                                dynTable.online = online;
+                                dynTable[prop.Key] = prop.Value;
                             }
                             dynTablesJson.tables.Add(dynTable);
                         }
@@ -306,19 +313,20 @@
         {
             try
             {
+                if (propertyName == "tables")
+                    throw new Exception("Propertyname 'tables' is not allowed");
                 lock (documentPropertiesLock)
                 {
                     if (documentProperties.ContainsKey(propertyName))
                     {
                         documentProperties[propertyName] = value;
-                        return true;
                     }
                     else
                     {
                         documentProperties.Add(propertyName, value);
-                        return true;
                     }
                 }
+                return SaveDocumentProperties();
             }
             catch (Exception ex)
             {
@@ -369,21 +377,23 @@
                 return null;
 
             //var keyList = (from c in dp where c.Name.StartsWith(key) || c.Name.StartsWith(key + "_") orderby String2Int(c.Name.Substring(key.Length)) select c.Value).ToList();
-            Dictionary<string, string> documentproprties = new Dictionary<string, string>();
+            Dictionary<string, string> documentproperties = new Dictionary<string, string>();
             foreach (var c in dp)
             {
-                documentproprties.Add(c.Name, c.Value.ToString());
+                documentproperties.Add(c.Name, c.Value.ToString());
+                logger.Trace($"found documentproperty for Key:{key} Name:{c.Name} Value:{c.Value.ToString()}");
             }
-            var keyList = documentproprties.Where(kvPair => kvPair.Key.StartsWith(key) || kvPair.Key.StartsWith(key + "_"))
+            var keyList = documentproperties.Where(kvPair => kvPair.Key.StartsWith(key) || kvPair.Key.StartsWith(key + "_"))
                 .OrderBy(kvPair => String2Int(kvPair.Key.Substring(kvPair.Key.Length)))
                 .Select(kvPair => kvPair.Value)
                 .ToList();
 
             if (keyList.Count > 0)
             {
-                var res = "";
+                string res = "";
                 foreach (var item in keyList)
                     res += item;
+
                 return res;
             }
 

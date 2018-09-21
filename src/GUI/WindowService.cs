@@ -26,7 +26,12 @@
         #endregion
 
         #region public Functions
-        public virtual void ShowOverlay(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
+        public void ShowOverlay(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
+        {
+            var wnd = GetOverlayWindow(content, verticalOffset, horizontalOffset);
+            wnd.ShowDialog();
+        }
+        public Window GetOverlayWindow(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
         {
 
             var rct = Win32Helper.GetParentWindowSize(this, new IntPtr(GetHwnd()));
@@ -47,7 +52,7 @@
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ParentHwnd = new IntPtr(GetHwnd()),
             };
-            wnd.ShowDialog();
+            return wnd;
         }
 
         public virtual Window GetWindow()
