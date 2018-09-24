@@ -17,6 +17,7 @@
     using System.Reflection;
     using System.Threading.Tasks;
     using System.Windows;
+    using System.Windows.Controls;
     using System.Windows.Threading;
     using WPFLocalizeExtension.Engine;
     #endregion
@@ -78,8 +79,6 @@
             NetOffice.Core.Default.ProxyCountChanged += Default_ProxyCountChanged;
             CreateVMsForApplication(Application);
         }
-
-
         #endregion
 
         #region public Functions       
@@ -90,12 +89,10 @@
         {
             logger.Trace($"ProxyCount Changed value={proxyCount}");
         }
-
         private void App_WorkbookOpenEvent(Workbook Wb)
         {
             Application_NewWorkbookEvent(Wb);
         }
-
         private void Application_WorkbookActivateEvent(Workbook wb)
         {
             try
@@ -116,7 +113,6 @@
             }
 
         }
-
         private void Application_SheetActivateEvent(COMObject sheet)
         {
 
@@ -124,7 +120,6 @@
             RemoveUnusedVms();
             sheet.Dispose();
         }
-
         private object getDynamicWorkbook(Workbook wb)
         {
             object dynWb = null;
@@ -138,7 +133,6 @@
             }
             return dynWb;
         }
-
         private void Application_NewWorkbookEvent(Workbook wb)
         {
             try
@@ -168,7 +162,6 @@
 
 
         }
-
         private void Application_WorkbookNewSheetEvent(Workbook wb, COMObject sheet)
         {
             try
@@ -192,7 +185,6 @@
         #endregion
 
         #region private Functions
-
         private Task RemoveUnusedVms()
         {
             Task retval = new Task(() => { });
@@ -292,7 +284,6 @@
             }
             return retval;
         }
-
         private void CreateVMsForApplication(dynamic app)
         {
             try
@@ -312,7 +303,6 @@
                 logger.Error(ex);
             }
         }
-
         private PropertyInfoCacheItem GetServiceProperetyInfo(Type forType)
         {
             PropertyInfoCacheItem retval = null;
@@ -345,7 +335,6 @@
             }
             return retval;
         }
-
         private List<object> CreateVMImplementations<T>(int hwnd, WorkbookData workbookdata, dynamic workbook) where T : IVM
         {
             List<object> createdVms = new List<object>();
@@ -374,22 +363,33 @@
                         {
                             if (servicePropertyInfos.PiWindowService != null)
                             {
+                                System.Func<int> GetHwnd = () =>
+                                {
+                                    var retHwnd = hwnd;
+                                    if (retHwnd == -1)
+                                        retHwnd = Application?.ActiveWindow?.Hwnd ?? -1;
+                                    return retHwnd;
+                                };
+
                                 var ws = new WindowService()
                                 {
                                     RibbonHeight = Application.CommandBars["Ribbon"].Height,
                                     RibbonWidth = Application.CommandBars["Ribbon"].Width,
                                     Dispatcher = currentDispatcher,
-                                    GetHwnd = () =>
-                                    {
-                                        var retHwnd = hwnd;
-                                        if (retHwnd == -1)
-                                            retHwnd = Application?.ActiveWindow?.Hwnd ?? -1;
-                                        return retHwnd;
-                                    },
+                                    GetHwnd = GetHwnd,
                                     ShowWaitingControl = (control) =>
                                       {
-                                          ShowWaitingPane(control as UIElement);
+                                          ShowWaitingPane(control as UIElement, GetHwnd());
+                                      },
+                                    ShowWaitingText = (control) =>
+                                      {
+                                          currentDispatcher.BeginInvoke((System.Action)(() =>
+                                          {
+                                              ShowWaitingText(control as string, GetHwnd());
+                                          }));
+
                                       }
+
                                 };
                                 servicePropertyInfos.PiWindowService.SetValue(vm, ws);
                             }
@@ -409,29 +409,29 @@
                     return null;
                 }).ToList();
                 Task.Run(() =>
-                    {
-                        lock (vmslock)
-                        {
-                            try
                             {
-                                foreach (var vm in createdVms)
+                                lock (vmslock)
                                 {
-                                    if (vm != null)
+                                    try
                                     {
-                                        if (!vms.ContainsKey(hwnd))
-                                            vms.Add(hwnd, new List<object>());
-                                        vms[hwnd].Add(vm);
-                                        logger.Trace(() => GetVMsCount());
+                                        foreach (var vm in createdVms)
+                                        {
+                                            if (vm != null)
+                                            {
+                                                if (!vms.ContainsKey(hwnd))
+                                                    vms.Add(hwnd, new List<object>());
+                                                vms[hwnd].Add(vm);
+                                                logger.Trace(() => GetVMsCount());
+                                            }
+                                        }
+                                        VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        logger.Error(ex);
                                     }
                                 }
-                                VMCreated?.Invoke(this, new VMEventArgs() { VMs = createdVms, HWND = hwnd });
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.Error(ex);
-                            }
-                        }
-                    });
+                            });
             }
             catch (Exception ex)
             {
@@ -439,7 +439,7 @@
             }
             return createdVms;
         }
-        public void ShowWaitingPane(UIElement child)
+        private void ShowWaitingPane(UIElement child, int hwnd)
         {
             if (statusPane == null)
             {
@@ -447,10 +447,26 @@
                 {
                     var container = new ucwfWPFContainer();
                     logger.Info("Conatiner: " + container.ToString());
-                    statusPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture)));
+                    object parent = null;
+                    foreach (var window in Application.Windows)
+                    {
+                        if (window.Hwnd == hwnd)
+                        {
+                            parent = window;
+                            break;
+                        }
+                    }
+                    if (parent != null)
+                    {
+                        statusPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture)), parent);
+                    }
+                    else
+                    {
+                        statusPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture)));
+                    }
                     (statusPane.ContentControl as ucwfWPFContainer).Child = child;
                     statusPane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionBottom;
-
+                    statusPane.Visible = true;
                     var startHeight = 60.0;
                     if (ExcelDnaUtil.ExcelVersion > 15)
                         startHeight = 80.0;
@@ -464,6 +480,7 @@
                 }
             }
 
+
             if (statusPane != null)
             {
                 if (child != null)
@@ -472,6 +489,10 @@
                 }
                 statusPane.Visible = (child != null);
             }
+        }
+        private void ShowWaitingText(string text, int hwnd)
+        {
+
         }
         private string GetVMsCount()
         {
@@ -486,7 +507,6 @@
                 .Count(ele => ele.GetInterfaces().Any(typ => typ.FullName == typeof(IWorksheetVM).FullName));
             return $"*****************************AppVMs:{AppVmCount}, WorkbookVMs:{WorkbookVmCount}, WorksheetVMs:{SheetVmCount}******************************";
         }
-
         private Task<WorkbookData> ConvertWorkbookAsync(dynamic wb)
         {
             WorkbookData wbd = new WorkbookData();
@@ -506,7 +526,6 @@
 
 
         }
-
         private Task CreateSheetVMsFromWorkbookAsync(WorkbookData wbd, dynamic workbook)
         {
             return Task.Run(() =>
@@ -546,7 +565,6 @@
                 }
             });
         }
-
         private Task<List<string>> GetSheetIdsFromWorkbookAsync(WorkbookData wb)
         {
 

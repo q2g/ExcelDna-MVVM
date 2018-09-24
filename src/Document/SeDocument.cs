@@ -219,9 +219,6 @@
         {
             try
             {
-
-                var tablesPart = GetTablePart(Workbook);
-
                 dynamic dynTablesJson = new JObject();
                 foreach (var prop in documentProperties)
                 {
@@ -439,17 +436,24 @@
         {
             //var tablepart = workbook.CustomXMLParts.FirstOrDefault(part => part.XML.Contains(TABLE_ELEMENT_NAME));
             dynamic tablepart = null;
-            lock (CustomXMLPartsLock)
+            try
             {
-                logger.Trace("Reading tablespart 2");
-                foreach (var part in workbook.CustomXMLParts)
+                lock (CustomXMLPartsLock)
                 {
-                    if (part.XML.Contains(TABLE_ELEMENT_NAME))
+                    logger.Trace("Reading tablespart 2");
+                    foreach (var part in workbook.CustomXMLParts)
                     {
-                        tablepart = part;
-                        break;
+                        if (part.XML.Contains(TABLE_ELEMENT_NAME))
+                        {
+                            tablepart = part;
+                            break;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
             }
             return tablepart;
         }
