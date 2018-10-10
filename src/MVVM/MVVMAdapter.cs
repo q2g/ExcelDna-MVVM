@@ -138,7 +138,8 @@
             try
             {
                 object dynWb = getDynamicWorkbook(wb);
-                wb.Dispose();
+                if (wb is Workbook)
+                    wb.Dispose();
 
                 ConvertWorkbookAsync(dynWb).ContinueWith((res) =>
                 {
@@ -312,7 +313,7 @@
                 {
                     retval = new PropertyInfoCacheItem
                     {
-                        PiWindowService = forType.GetProperties().FirstOrDefault(prop => prop.PropertyType.FullName == typeof(WindowService).FullName),
+                        PiWindowService = forType.GetProperties().FirstOrDefault(prop => prop.PropertyType.FullName == typeof(GUIService).FullName),
                         PiDocumentPropertyService = forType.GetProperties().FirstOrDefault(prop => prop.PropertyType.FullName == typeof(SeDocument).FullName)
                     };
                 }
@@ -363,7 +364,7 @@
                         {
                             if (servicePropertyInfos.PiWindowService != null)
                             {
-                                System.Func<int> GetHwnd = () =>
+                                Func<int> GetHwnd = () =>
                                 {
                                     var retHwnd = hwnd;
                                     if (retHwnd == -1)
@@ -371,25 +372,13 @@
                                     return retHwnd;
                                 };
 
-                                var ws = new WindowService()
+                                var ws = new GUIService()
                                 {
                                     RibbonHeight = Application.CommandBars["Ribbon"].Height,
                                     RibbonWidth = Application.CommandBars["Ribbon"].Width,
                                     Dispatcher = currentDispatcher,
                                     GetHwnd = GetHwnd,
-                                    ShowWaitingControl = (control) =>
-                                      {
-                                          ShowWaitingPane(control as UIElement, GetHwnd());
-                                      },
-                                    ShowWaitingText = (control) =>
-                                      {
-                                          currentDispatcher.BeginInvoke((System.Action)(() =>
-                                          {
-                                              ShowWaitingText(control as string, GetHwnd());
-                                          }));
-
-                                      }
-
+                                    TaskPaneService = new TaskPaneService(Application, GetHwnd)
                                 };
                                 servicePropertyInfos.PiWindowService.SetValue(vm, ws);
                             }
@@ -438,61 +427,6 @@
                 logger.Error(ex);
             }
             return createdVms;
-        }
-        private void ShowWaitingPane(UIElement child, int hwnd)
-        {
-            if (statusPane == null)
-            {
-                try
-                {
-                    var container = new ucwfWPFContainer();
-                    logger.Info("Conatiner: " + container.ToString());
-                    object parent = null;
-                    foreach (var window in Application.Windows)
-                    {
-                        if (window.Hwnd == hwnd)
-                        {
-                            parent = window;
-                            break;
-                        }
-                    }
-                    if (parent != null)
-                    {
-                        statusPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture)), parent);
-                    }
-                    else
-                    {
-                        statusPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture)));
-                    }
-                    (statusPane.ContentControl as ucwfWPFContainer).Child = child;
-                    statusPane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionBottom;
-                    statusPane.Visible = true;
-                    var startHeight = 60.0;
-                    if (ExcelDnaUtil.ExcelVersion > 15)
-                        startHeight = 80.0;
-
-                    statusPane.Height = (int)(startHeight * Win32Helper.GetDpiYScale);
-                    statusPane.DockPositionRestrict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNoChange;
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex);
-                }
-            }
-
-
-            if (statusPane != null)
-            {
-                if (child != null)
-                {
-                    (statusPane.ContentControl as ucwfWPFContainer).Child = child;
-                }
-                statusPane.Visible = (child != null);
-            }
-        }
-        private void ShowWaitingText(string text, int hwnd)
-        {
-
         }
         private string GetVMsCount()
         {

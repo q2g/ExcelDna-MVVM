@@ -1,16 +1,17 @@
 ﻿namespace ExcelDna_MVVM.GUI
 {
-    using ExcelDna_MVVM.Utils;
     #region Usings
+    using ExcelDna_MVVM.Utils;
     using NLog;
     using System;
     using System.Windows;
     using System.Windows.Controls;
     using System.Windows.Interop;
     using System.Windows.Threading;
+    using WPFLocalizeExtension.Engine;
     #endregion
 
-    public class WindowService
+    public class GUIService
     {
         #region LoggerInit
         private static Logger logger = LogManager.GetCurrentClassLogger();
@@ -20,9 +21,8 @@
         public virtual double RibbonWidth { get; set; }
         public virtual double RibbonHeight { get; set; }
         public virtual Func<int> GetHwnd { get; set; }
-        public virtual Action<object> ShowWaitingControl { get; set; }
-        public virtual Action<object> ShowWaitingText { get; set; }
         public Dispatcher Dispatcher { get; set; }
+        public TaskPaneService TaskPaneService { get; set; }
         #endregion
 
         #region public Functions
@@ -33,7 +33,6 @@
         }
         public Window GetOverlayWindow(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
         {
-
             var rct = Win32Helper.GetParentWindowSize(this, new IntPtr(GetHwnd()));
             var tlc = new System.Drawing.Point(0, 0)
             {
@@ -54,8 +53,7 @@
             };
             return wnd;
         }
-
-        public virtual Window GetWindow()
+        public Window GetWindow()
         {
             try
             {
@@ -75,6 +73,31 @@
             }
             return null;
         }
+        public void ShowWaitingControl(object content, Action<bool> VisibleStateChangedAction = null)
+        {
+            TaskPaneService.ShowInTaskPane("WaitingPane"
+                , (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture))
+                , false
+                , content as UIElement
+                , ExcelDna.Integration.CustomUI.MsoCTPDockPosition.msoCTPDockPositionBottom
+                , ExcelDna.Integration.CustomUI.MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNoChange
+                , 80
+                , VisibleStateChangedAction: VisibleStateChangedAction);
+        }
+        public void ShowSelectionControl(object content, Action<bool> VisibleStateChangedAction = null)
+        {
+            TaskPaneService.ShowInTaskPane("SelectionControl"
+                , "Sense"
+                , false
+                , content as UIElement
+                , ExcelDna.Integration.CustomUI.MsoCTPDockPosition.msoCTPDockPositionTop
+                , ExcelDna.Integration.CustomUI.MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNoChange
+                , 80
+                , VisibleStateChangedAction: VisibleStateChangedAction);
+        }
+        #endregion
+
+        #region private Functions        
         #endregion
     }
 }
