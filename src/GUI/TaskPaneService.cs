@@ -16,13 +16,15 @@ namespace ExcelDna_MVVM.GUI
         private static Logger logger = LogManager.GetCurrentClassLogger();
         private dynamic application;
         private Func<int> getHwnd;
+        Func<dynamic> getWindow;
         #endregion
 
         #region ctor
-        public TaskPaneService(dynamic application, Func<int> getHwnd)
+        public TaskPaneService(dynamic application, Func<int> getHwnd, Func<dynamic> getWindow)
         {
             this.application = application;
             this.getHwnd = getHwnd;
+            this.getWindow = getWindow;
         }
         #endregion
 
@@ -42,16 +44,7 @@ namespace ExcelDna_MVVM.GUI
                     var container = new ucwfWPFContainer();
                     logger.Info($"ShowInTaskPane: id={id}, hwnd={hwnd}, header={header}, height={height}, width={width} " + container.ToString());
 
-                    object parent = application.ActiveWindow;
-                    foreach (var window in application.Windows)
-                    {
-                        if (window.Hwnd == hwnd)
-                        {
-                            parent = window;
-                            break;
-                        }
-                    }
-
+                    object parent = getWindow();
                     if (parent != null)
                     {
                         newPane = CustomTaskPaneFactory.CreateCustomTaskPane(container, header, parent);
@@ -65,6 +58,7 @@ namespace ExcelDna_MVVM.GUI
 
                     if (height != -1)
                         newPane.Height = (int)(height * Win32Helper.GetDpiYScale);
+
                     if (width != -1)
                         newPane.Width = (int)(width * Win32Helper.GetDpiXScale);
 

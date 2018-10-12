@@ -364,6 +364,18 @@
                         {
                             if (servicePropertyInfos.PiWindowService != null)
                             {
+                                Func<dynamic> GetWindow = () =>
+                                {
+                                    if (hwnd != -1)
+                                    {
+                                        foreach (dynamic wnd in Application.Windows)
+                                        {
+                                            if (wnd.Hwnd == hwnd)
+                                                return wnd;
+                                        }
+                                    }
+                                    return Application.ActiveWindow;
+                                };
                                 Func<int> GetHwnd = () =>
                                 {
                                     var retHwnd = hwnd;
@@ -378,7 +390,8 @@
                                     RibbonWidth = Application.CommandBars["Ribbon"].Width,
                                     Dispatcher = currentDispatcher,
                                     GetHwnd = GetHwnd,
-                                    TaskPaneService = new TaskPaneService(Application, GetHwnd)
+                                    GetCurrentWindow = GetWindow,
+                                    TaskPaneService = new TaskPaneService(Application, GetHwnd, GetWindow)
                                 };
                                 servicePropertyInfos.PiWindowService.SetValue(vm, ws);
                             }

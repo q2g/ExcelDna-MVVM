@@ -21,6 +21,7 @@
         public virtual double RibbonWidth { get; set; }
         public virtual double RibbonHeight { get; set; }
         public virtual Func<int> GetHwnd { get; set; }
+        public virtual Func<dynamic> GetCurrentWindow { get; set; }
         public Dispatcher Dispatcher { get; set; }
         public TaskPaneService TaskPaneService { get; set; }
         #endregion
@@ -33,11 +34,14 @@
         }
         public Window GetOverlayWindow(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
         {
+
+            dynamic currwnd = GetCurrentWindow();
+            int offset = (currwnd?.WindowState ?? 0) == -4137 ? 8 : 0;
             var rct = Win32Helper.GetParentWindowSize(this, new IntPtr(GetHwnd()));
             var tlc = new System.Drawing.Point(0, 0)
             {
                 X = (int)(rct.Left + horizontalOffset),
-                Y = (int)(rct.Top + RibbonHeight * Win32Helper.GetDpiYScale + verticalOffset)
+                Y = (int)(rct.Top + (offset + RibbonHeight + verticalOffset) * Win32Helper.GetDpiYScale)
             };
 
 
