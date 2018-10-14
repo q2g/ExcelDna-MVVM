@@ -32,7 +32,7 @@
             var wnd = GetOverlayWindow(content, verticalOffset, horizontalOffset);
             wnd.ShowDialog();
         }
-        public Window GetOverlayWindow(UserControl content, double verticalOffset = 0, double horizontalOffset = 0)
+        public Window GetOverlayWindow(UserControl content, double verticalOffset = 0, double horizontalOffset = 0, bool heightMaximized = true, bool widthmaximized = true)
         {
 
             dynamic currwnd = GetCurrentWindow();
@@ -47,13 +47,12 @@
 
             var wnd = new wdwpfOverlayDialog()
             {
-                TopLeftCorner = new System.Windows.Point(tlc.X, tlc.Y),
+                TopLeftCorner = new Point(tlc.X, tlc.Y),
                 ChildUserControl = content,
-                HeightMaximized = true,
-                WidthMaximized = true,
-                Width = 500,
+                HeightMaximized = heightMaximized,
+                WidthMaximized = widthmaximized,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                ParentHwnd = new IntPtr(GetHwnd()),
+                ParentHwnd = new IntPtr(GetHwnd())
             };
             return wnd;
         }
