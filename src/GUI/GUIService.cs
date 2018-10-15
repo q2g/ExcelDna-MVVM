@@ -76,28 +76,6 @@
             }
             return null;
         }
-        public void ShowWaitingControl(object content, Action<bool> VisibleStateChangedAction = null)
-        {
-            TaskPaneService.ShowInTaskPane("WaitingPane"
-                , (string)(LocalizeDictionary.Instance.GetLocalizedObject("se-xll:SenseExcelRibbon:StatusPaneHeader", null, LocalizeDictionary.Instance.Culture))
-                , false
-                , content as UIElement
-                , ExcelDna.Integration.CustomUI.MsoCTPDockPosition.msoCTPDockPositionBottom
-                , ExcelDna.Integration.CustomUI.MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNoChange
-                , 80
-                , VisibleStateChangedAction: VisibleStateChangedAction);
-        }
-        public void ShowSelectionControl(object content, Action<bool> VisibleStateChangedAction = null)
-        {
-            TaskPaneService.ShowInTaskPane("SelectionControl"
-                , "Sense"
-                , false
-                , content as UIElement
-                , ExcelDna.Integration.CustomUI.MsoCTPDockPosition.msoCTPDockPositionTop
-                , ExcelDna.Integration.CustomUI.MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNoChange
-                , 80
-                , VisibleStateChangedAction: VisibleStateChangedAction);
-        }
         #endregion
 
         #region private Functions        
