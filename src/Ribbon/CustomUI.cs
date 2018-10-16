@@ -199,7 +199,7 @@
                 }
                 else
                 {
-                    return GetBindingValue<System.Drawing.Image>(control, RibbonBindingType.LabelBinding);
+                    return GetBindingValue<System.Drawing.Image>(control, RibbonBindingType.ImageBinding);
                 }
             }
             catch (Exception ex)

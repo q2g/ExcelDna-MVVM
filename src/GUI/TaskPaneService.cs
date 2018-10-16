@@ -33,7 +33,7 @@ namespace ExcelDna_MVVM.GUI
         #endregion
 
         #region Public Functions
-        public void ShowInTaskPane(string id, string header, bool multiContent, UIElement child, MsoCTPDockPosition dockPostion, MsoCTPDockPositionRestrict positionRestict, double height = -1, double width = -1, Action<bool> VisibleStateChangedAction = null)
+        public void ShowInTaskPane(string id, string header, bool multiContent, UIElement child, MsoCTPDockPosition dockPostion = MsoCTPDockPosition.msoCTPDockPositionLeft, MsoCTPDockPositionRestrict positionRestict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNone, double height = -1, double width = -1, Action<bool> VisibleStateChangedAction = null)
         {
             try
             {
