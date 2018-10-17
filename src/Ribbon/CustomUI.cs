@@ -187,7 +187,6 @@
         {
             try
             {
-                //return LocalizeDictionary.Instance.GetLocalizedObject(ribbon.Tag + "_Image", null, LocalizeDictionary.Instance.Culture) as System.Drawing.Bitmap;
                 var bindinginfo = GetResourceBinding(control.Id, RibbonBindingType.ImageFromResource);
                 if (bindinginfo != null)
                 {
@@ -207,6 +206,56 @@
                 logger.Error(ex);
                 return null;
             }
+        }
+
+        public string GetScreentip(IRibbonControl control)
+        {
+            try
+            {
+                var bindinginfo = GetResourceBinding(control.Id, RibbonBindingType.ScreentipFromResource);
+                if (bindinginfo != null)
+                {
+                    if (addInInformation != null)
+                    {
+                        return (string)addInInformation.GetResource(bindinginfo.ResourceKey);
+                    }
+                    return bindinginfo.ResourceKey;
+                }
+                else
+                {
+                    return GetBindingValue<string>(control, RibbonBindingType.ScreentipBinding);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return "";
+        }
+
+        public string GetSupertip(IRibbonControl control)
+        {
+            try
+            {
+                var bindinginfo = GetResourceBinding(control.Id, RibbonBindingType.SupertipFromResource);
+                if (bindinginfo != null)
+                {
+                    if (addInInformation != null)
+                    {
+                        return (string)addInInformation.GetResource(bindinginfo.ResourceKey);
+                    }
+                    return bindinginfo.ResourceKey;
+                }
+                else
+                {
+                    return GetBindingValue<string>(control, RibbonBindingType.SupertipBinding);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+            }
+            return "";
         }
 
         public void OnLoad(IRibbonUI ribbon)
@@ -511,6 +560,9 @@
                     case RibbonBindingType.ItemId:
                     case RibbonBindingType.ItemLabel:
                     case RibbonBindingType.ItemImage:
+                    case RibbonBindingType.ImageBinding:
+                    case RibbonBindingType.ScreentipBinding:
+                    case RibbonBindingType.SupertipBinding:
                     case RibbonBindingType.ComboboxSelectedChanged:
                     case RibbonBindingType.ComboboxSelectedText:
                     case RibbonBindingType.Invalidation:

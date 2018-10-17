@@ -18,7 +18,11 @@
         ItemImage,
         LabelBinding,
         ImageBinding,
+        ScreentipBinding,
+        SupertipBinding,
         LabelFromResource,
+        ScreentipFromResource,
+        SupertipFromResource,
         ImageFromResource,
         ComboboxSelectedChanged,
         ComboboxSelectedText

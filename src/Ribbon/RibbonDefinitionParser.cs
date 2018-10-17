@@ -47,6 +47,8 @@
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "toggleButton", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "gallery", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "button", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "", "getScreentip", nameof(CustomUI.GetScreentip), RibbonBindingType.ScreentipBinding, null, addInInfo, localizationPrefix));
+                    bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "", "getSupertip", nameof(CustomUI.GetSupertip), RibbonBindingType.SupertipBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "toggleButton", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "gallery", "getImage", nameof(CustomUI.GetImage), RibbonBindingType.ImageBinding, null, addInInfo, localizationPrefix));
                     bindingInfos.AddRange(ReplaceBindingAndExtractBindingInfo(ribbonelement, "group", "getLabel", nameof(CustomUI.GetLabel), RibbonBindingType.LabelBinding, null, addInInfo, localizationPrefix));
@@ -124,6 +126,12 @@
                                     break;
                                 case RibbonBindingType.ImageBinding:
                                     newBindingInfo.RibbonBindingType = RibbonBindingType.ImageFromResource;
+                                    break;
+                                case RibbonBindingType.ScreentipBinding:
+                                    newBindingInfo.RibbonBindingType = RibbonBindingType.ScreentipFromResource;
+                                    break;
+                                case RibbonBindingType.SupertipBinding:
+                                    newBindingInfo.RibbonBindingType = RibbonBindingType.SupertipFromResource;
                                     break;
                                 default:
                                     break;
