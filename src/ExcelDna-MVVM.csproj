@@ -37,7 +37,7 @@
 
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
 
-    <PackageReference Include="WpfLocalizeExtension" Version="3.2.0" />
+    <PackageReference Include="WpfLocalizeExtension" Version="3.3.1" />
   
     <!-- Resources -->
     <EmbeddedResource Update="Properties\Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />
