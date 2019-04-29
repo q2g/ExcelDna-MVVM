@@ -27,7 +27,7 @@
 
     <None Remove="default.jsconfig" />
 
-    <PackageReference Include="ExcelDna.AddIn" Version="0.35.4-beta4" />
+    <PackageReference Include="ExcelDna.AddIn" Version="1.0.0" />
 
     <PackageReference Include="NetOffice.Excel" Version="1.7.4.4" />
 
