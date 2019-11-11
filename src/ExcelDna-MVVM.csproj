@@ -31,7 +31,7 @@
 
     <PackageReference Include="NetOffice.Excel" Version="1.7.4.4" />
 
-    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
 
     <PackageReference Include="NLog" Version="4.6.2" />
 
